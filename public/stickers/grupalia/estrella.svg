@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="star" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fde047"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+  </defs>
+  <polygon points="64,8 78,48 120,48 86,72 98,112 64,88 30,112 42,72 8,48 50,48" fill="url(#star)" stroke="#b45309" stroke-width="3" stroke-linejoin="round"/>
+  <polygon points="64,24 73,48 98,48 78,62 86,86 64,72 42,86 50,62 30,48 55,48" fill="#fef08a" opacity="0.5"/>
+  <circle cx="94" cy="20" r="3" fill="#fde047"/>
+  <circle cx="104" cy="28" r="2" fill="#fde047" opacity="0.7"/>
+  <path d="M96 16l4-6M106 24l6-2M100 34l4 2" stroke="#fbbf24" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="30" cy="24" r="2.5" fill="#fde047" opacity="0.6"/>
+  <path d="M28 20l-4-4" stroke="#fbbf24" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
+</svg>

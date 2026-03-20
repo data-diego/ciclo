@@ -1,209 +1,704 @@
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import type { GameMode, BusinessType } from "../game/types";
 import { BUSINESS_INFO, MODE_INFO } from "../game/types";
-import type { useGameStore } from "../game/store";
+import { generateCode, generateGroupName } from "../game/helpers";
+import { Android } from "../components/Android";
+import {
+  WAStatusBar,
+  WAHeader,
+  WAChatBody,
+  WADateDivider,
+  WAMessageIn,
+  WAMessageOut,
+  WASystemMessage,
+  WALinkPreview,
+  WATyping,
+  WAInputBar,
+  WAToast,
+} from "../components/WhatsApp";
+import type { DbConnection } from "../module_bindings";
+import type { Identity } from "spacetimedb";
+import type { Game, Player, ChatMessage, CustomSticker } from "../module_bindings/types";
+import { StickerPicker, StickerBubble } from "../components/StickerPicker";
 
-type Store = ReturnType<typeof useGameStore>;
+// --- Props ---
 
-export function Lobby({ store }: { store: Store }) {
-  const { game, players, localPlayer, isCreator } = store;
-  const [nameInput, setNameInput] = useState("");
-  const [nameSet, setNameSet] = useState(false);
+interface LobbyProps {
+  conn: DbConnection;
+  identity: Identity;
+  gameCode: string | null;
+  setGameCode: (code: string) => void;
+  games: readonly Game[];
+  players: readonly Player[];
+  chatMessages: readonly ChatMessage[];
+  customStickers: readonly CustomSticker[];
+}
 
-  if (!game) return <CreateRoom store={store} />;
+// --- Helpers ---
 
-  const handleSetName = () => {
-    if (!nameInput.trim()) return;
-    store.setName(nameInput.trim());
-    setNameSet(true);
+function formatTime(ts: number): string {
+  const d = new Date(ts);
+  return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
+function GrupaliaAvatar() {
+  return (
+    <img src="/icon.png" alt="Grupalia" className="w-full h-full object-cover" />
+  );
+}
+
+// Hook: toast
+function useToast(duration = 2000) {
+  const [toast, setToast] = useState<string | null>(null);
+
+  const show = useCallback(
+    (msg: string) => {
+      setToast(msg);
+      setTimeout(() => setToast(null), duration);
+    },
+    [duration]
+  );
+
+  return { message: toast || "", visible: !!toast, show };
+}
+
+// --- Safe reducer call wrapper ---
+
+type SafeCall = (fn: () => void) => void;
+
+function useSafeCall(): { safeCall: SafeCall; errorToast: { message: string; visible: boolean } } {
+  const toast = useToast(3000);
+
+  const safeCall: SafeCall = useCallback(
+    (fn) => {
+      try {
+        fn();
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Something went wrong";
+        toast.show(msg);
+      }
+    },
+    [toast]
+  );
+
+  return { safeCall, errorToast: toast };
+}
+
+// --- Entry ---
+
+export function Lobby({ conn, identity, gameCode, setGameCode, games, players, chatMessages, customStickers }: LobbyProps) {
+  const urlParams = new URLSearchParams(window.location.search);
+  const joinCode = urlParams.get("room");
+  const [joinFlowDone, setJoinFlowDone] = useState(!joinCode);
+  const { safeCall, errorToast } = useSafeCall();
+
+  // Find the current game from subscriptions
+  const game = gameCode ? games.find((g) => g.code === gameCode) : null;
+
+  // Find players in this game
+  const gamePlayers = gameCode
+    ? players.filter((p) => p.gameCode === gameCode)
+    : [];
+
+  // Find local player
+  const localPlayer = players.find(
+    (p) => p.identity.toHexString() === identity.toHexString()
+  );
+
+  const isCreator = game
+    ? game.creator.toHexString() === identity.toHexString()
+    : false;
+
+  if (!joinFlowDone) {
+    return (
+      <JoinFlow
+        conn={conn}
+        roomCode={joinCode!}
+        game={game}
+        safeCall={safeCall}
+        errorToast={errorToast}
+        onDone={() => {
+          setGameCode(joinCode!);
+          setJoinFlowDone(true);
+        }}
+      />
+    );
+  }
+
+  if (!game) {
+    return (
+      <CreateFlow
+        conn={conn}
+        setGameCode={setGameCode}
+        safeCall={safeCall}
+        errorToast={errorToast}
+      />
+    );
+  }
+
+  return (
+    <WaitingRoom
+      conn={conn}
+      identity={identity}
+      game={game}
+      players={gamePlayers}
+      localPlayer={localPlayer ?? null}
+      isCreator={isCreator}
+      chatMessages={chatMessages.filter((m) => m.gameCode === gameCode)}
+      customStickers={customStickers.filter((s) => s.gameCode === gameCode)}
+      safeCall={safeCall}
+      errorToast={errorToast}
+    />
+  );
+}
+
+// =====================================================
+// CREATE FLOW — intro + mode picker, then straight to WaitingRoom
+// =====================================================
+
+function CreateFlow({
+  conn,
+  setGameCode,
+  safeCall,
+  errorToast,
+}: {
+  conn: DbConnection;
+  setGameCode: (code: string) => void;
+  safeCall: SafeCall;
+  errorToast: { message: string; visible: boolean };
+}) {
+  const [step, setStep] = useState<"typing_intro" | "intro" | "pick_mode">("typing_intro");
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const t = setTimeout(() => setStep("intro"), 800);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [step]);
+
+  const handlePickMode = (mode: GameMode) => {
+    const code = generateCode();
+    const groupName = generateGroupName();
+    safeCall(() => {
+      conn.reducers.createGame({ code, groupName, mode });
+      setGameCode(code);
+    });
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-lg max-w-lg w-full p-8">
-        <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">CICLO</h1>
-          <div className="inline-flex items-center gap-2 bg-gray-100 rounded-lg px-4 py-2">
-            <span className="text-sm text-gray-500">Room</span>
-            <span className="text-2xl font-mono font-bold tracking-widest text-gray-900">
-              {game.code}
-            </span>
-          </div>
-          <p className="text-sm text-gray-400 mt-2">
-            {MODE_INFO[game.mode as GameMode].label} /{" "}
-            {MODE_INFO[game.mode as GameMode].weeks} weeks
-          </p>
-        </div>
+    <div className="min-h-screen bg-g-50 logo-bg flex items-center justify-center p-4">
+      <Android className="drop-shadow-2xl">
+        <div className="flex flex-col h-full bg-white text-g-900">
+          <WAStatusBar />
+          <WAHeader
+            name="Grupalia"
+            avatar={<GrupaliaAvatar />}
+            subtitle="Business account"
+            verified
+          />
 
-        {/* Name input */}
-        {!nameSet ? (
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Your name
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={nameInput}
-                onChange={(e) => setNameInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSetName()}
-                placeholder="Enter your name..."
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-                autoFocus
-              />
-              <button
-                onClick={handleSetName}
-                className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+          <WAChatBody>
+            <WADateDivider text="Today" />
+            <WASystemMessage>
+              Messages to this business account are secured with end-to-end encryption.
+            </WASystemMessage>
+
+            {step === "typing_intro" && <WATyping />}
+
+            {step !== "typing_intro" && (
+              <WAMessageIn
+                time={formatTime(Date.now())}
+                buttons={
+                  step === "intro"
+                    ? [
+                        {
+                          label: "Crear grupo",
+                          icon: (
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+                              <circle cx="9" cy="7" r="4" />
+                              <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
+                            </svg>
+                          ),
+                          onClick: () => setStep("pick_mode"),
+                        },
+                      ]
+                    : undefined
+                }
               >
-                Join
-              </button>
-            </div>
-          </div>
-        ) : (
-          <>
-            {/* Business type picker */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Pick your business
-              </label>
-              <div className="grid grid-cols-3 gap-2">
-                {(Object.entries(BUSINESS_INFO) as [BusinessType, { emoji: string; label: string }][]).map(
-                  ([type, info]) => (
-                    <button
-                      key={type}
-                      onClick={() => store.pickBusinessType(type)}
-                      className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all ${
-                        localPlayer?.businessType === type
-                          ? "border-emerald-500 bg-emerald-50"
-                          : "border-gray-200 hover:border-gray-300"
-                      }`}
-                    >
-                      <span className="text-2xl mb-1">{info.emoji}</span>
-                      <span className="text-xs font-medium text-gray-700">
-                        {info.label}
-                      </span>
-                    </button>
-                  )
-                )}
-              </div>
-            </div>
-          </>
-        )}
+                <p>Hola! Soy tu promotora de <strong>Grupalia</strong>.</p>
+                <p className="mt-1.5">
+                  Estas lista para iniciar un nuevo ciclo de credito grupal?
+                  Junta a tu grupo y empecemos.
+                </p>
+              </WAMessageIn>
+            )}
 
-        {/* Players list */}
-        <div className="mb-6">
-          <h2 className="text-sm font-medium text-gray-500 mb-3">
-            Players ({players.length})
-          </h2>
-          <div className="space-y-2">
-            {players.map((p) => (
-              <div
-                key={p.id}
-                className="flex items-center gap-3 p-2 rounded-lg bg-gray-50"
-              >
-                <span className="text-lg">
-                  {p.businessType
-                    ? BUSINESS_INFO[p.businessType as BusinessType]?.emoji
-                    : "\u{2B1C}"}
-                </span>
-                <span className="font-medium text-gray-900">
-                  {p.name || "..."}
-                </span>
-                {p.isLocal && (
-                  <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
-                    you
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
+            {/* Mode picker */}
+            {step === "pick_mode" && (
+              <>
+                <WAMessageOut time={formatTime(Date.now())}>Si, quiero crear un grupo!</WAMessageOut>
+                <WAMessageIn
+                  time={formatTime(Date.now())}
+                  buttons={(
+                    Object.entries(MODE_INFO) as [GameMode, { label: string; weeks: number }][]
+                  ).map(([mode, info]) => ({
+                    label: `${info.label} (${info.weeks} sem)`,
+                    onClick: () => handlePickMode(mode),
+                  }))}
+                >
+                  Que tipo de ciclo quieres?
+                </WAMessageIn>
+              </>
+            )}
+
+            <div ref={scrollRef} />
+          </WAChatBody>
+
+          <WAInputBar disabled />
+          <WAToast message={errorToast.message} visible={errorToast.visible} />
         </div>
-
-        {/* Add bots (dev mode) */}
-        {isCreator && (
-          <div className="mb-4">
-            <button
-              onClick={() => {
-                const names = [
-                  "Ana",
-                  "Rosa",
-                  "Lupita",
-                  "Maria",
-                  "Carmen",
-                  "Diana",
-                ];
-                const types: BusinessType[] = [
-                  "tiendita",
-                  "salon",
-                  "puesto",
-                  "catalogo",
-                  "costura",
-                  "panaderia",
-                ];
-                const idx = players.length - 1;
-                store.addBot(
-                  names[idx % names.length],
-                  types[idx % types.length]
-                );
-              }}
-              className="w-full py-2 text-sm text-gray-500 border border-dashed border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              + Add bot player (dev)
-            </button>
-          </div>
-        )}
-
-        {/* Start button */}
-        {isCreator && (
-          <button
-            onClick={store.startGame}
-            disabled={players.length < 2}
-            className="w-full py-3 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-lg"
-          >
-            Start Game
-          </button>
-        )}
-        {!isCreator && (
-          <p className="text-center text-sm text-gray-400">
-            Waiting for host to start...
-          </p>
-        )}
-      </div>
+      </Android>
     </div>
   );
 }
 
-function CreateRoom({ store }: { store: Store }) {
-  return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-lg max-w-md w-full p-8 text-center">
-        <h1 className="text-4xl font-bold text-gray-900 mb-2">CICLO</h1>
-        <p className="text-gray-500 mb-8">
-          Experience a Grupalia credit cycle
-        </p>
+// =====================================================
+// JOIN FLOW — invite preview, tap join, then straight to WaitingRoom
+// =====================================================
 
-        <div className="space-y-3">
-          {(Object.entries(MODE_INFO) as [GameMode, { label: string; weeks: number }][]).map(
-            ([mode, info]) => (
-              <button
-                key={mode}
-                onClick={() => store.createGame(mode)}
-                className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-gray-200 hover:border-emerald-500 hover:bg-emerald-50 transition-all"
+function JoinFlow({
+  conn,
+  roomCode,
+  game,
+  safeCall,
+  errorToast,
+  onDone,
+}: {
+  conn: DbConnection;
+  roomCode: string;
+  game: Game | null | undefined;
+  safeCall: SafeCall;
+  errorToast: { message: string; visible: boolean };
+  onDone: () => void;
+}) {
+  const [step, setStep] = useState<"typing_intro" | "invite">("typing_intro");
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const t = setTimeout(() => setStep("invite"), 800);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [step]);
+
+  const handleJoinGroup = () => {
+    safeCall(() => {
+      conn.reducers.joinGame({ code: roomCode });
+      onDone();
+    });
+  };
+
+  return (
+    <div className="min-h-screen bg-g-50 logo-bg flex items-center justify-center p-4">
+      <Android className="drop-shadow-2xl">
+        <div className="flex flex-col h-full bg-white text-g-900">
+          <WAStatusBar />
+          <WAHeader
+            name="Grupalia"
+            avatar={<GrupaliaAvatar />}
+            subtitle="Business account"
+            verified
+          />
+
+          <WAChatBody>
+            <WADateDivider text="Today" />
+            <WASystemMessage>
+              Messages to this business account are secured with end-to-end encryption.
+            </WASystemMessage>
+
+            {step === "typing_intro" && <WATyping />}
+
+            {step !== "typing_intro" && (
+              <WAMessageIn
+                time={formatTime(Date.now())}
+                buttons={[{ label: "Unirme al grupo", onClick: handleJoinGroup }]}
               >
-                <div className="text-left">
-                  <div className="font-semibold text-gray-900">
-                    {info.label}
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    {info.weeks} weeks
-                  </div>
+                <p>Te invitaron a un grupo de credito en <strong>Grupalia</strong>!</p>
+                <div className="mt-2">
+                  <WALinkPreview
+                    title={game ? `Unete a ${game.groupName}` : "Unete a un grupo de Grupalia"}
+                    description={game ? `${MODE_INFO[game.mode as GameMode]?.label} - ${MODE_INFO[game.mode as GameMode]?.weeks} semanas` : "Tap para unirte al ciclo"}
+                    domain="ciclo.grupalia.com"
+                    onClick={handleJoinGroup}
+                  />
                 </div>
-                <span className="text-gray-400">&rarr;</span>
-              </button>
-            )
-          )}
+              </WAMessageIn>
+            )}
+
+            <div ref={scrollRef} />
+          </WAChatBody>
+
+          <WAInputBar disabled />
+          <WAToast message={errorToast.message} visible={errorToast.visible} />
         </div>
-      </div>
+      </Android>
+    </div>
+  );
+}
+
+// =====================================================
+// WAITING ROOM
+// =====================================================
+
+function WaitingRoom({
+  conn,
+  identity,
+  game,
+  players,
+  localPlayer,
+  isCreator,
+  chatMessages,
+  customStickers,
+  safeCall,
+  errorToast,
+}: {
+  conn: DbConnection;
+  identity: Identity;
+  game: Game;
+  players: readonly Player[];
+  localPlayer: Player | null;
+  isCreator: boolean;
+  chatMessages: readonly ChatMessage[];
+  customStickers: readonly CustomSticker[];
+  safeCall: SafeCall;
+  errorToast: { message: string; visible: boolean };
+}) {
+  const [nameInput, setNameInput] = useState("");
+  const [chatInput, setChatInput] = useState("");
+  const [step, setStep] = useState<"name" | "business" | "ready">("name");
+  const actionToast = useToast();
+  const [showPicker, setShowPicker] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Track when setup answers happened so they appear chronologically in chat
+  const [nameAnsweredAt, setNameAnsweredAt] = useState<number | null>(null);
+  const [businessAnsweredAt, setBusinessAnsweredAt] = useState<number | null>(null);
+
+  // Determine step based on player state
+  const currentStep =
+    localPlayer && localPlayer.name && localPlayer.businessType
+      ? "ready"
+      : localPlayer && localPlayer.name
+        ? "business"
+        : "name";
+
+  useEffect(() => {
+    setStep(currentStep);
+  }, [currentStep]);
+
+  // Capture timestamps when answers come in from server
+  useEffect(() => {
+    if (localPlayer?.name && !nameAnsweredAt) {
+      setNameAnsweredAt(Date.now());
+    }
+  }, [localPlayer?.name, nameAnsweredAt]);
+
+  useEffect(() => {
+    if (localPlayer?.businessType && !businessAnsweredAt) {
+      setBusinessAnsweredAt(Date.now());
+    }
+  }, [localPlayer?.businessType, businessAnsweredAt]);
+
+  useEffect(() => {
+    scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [step, players.length, chatMessages.length]);
+
+  const shareUrl = `${window.location.origin}?room=${game.code}`;
+
+  const handleShare = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      actionToast.show("Link copied!");
+    } catch {
+      actionToast.show("Could not copy");
+    }
+  };
+
+  const handleSetName = (name: string) => {
+    if (!name.trim()) return;
+    safeCall(() => conn.reducers.setName({ name: name.trim() }));
+    setNameInput("");
+  };
+
+  const handleSendChat = (text: string) => {
+    if (!text.trim()) return;
+    safeCall(() => conn.reducers.sendChatMessage({ content: text.trim(), kind: "text" }));
+    setChatInput("");
+    setShowPicker(false);
+  };
+
+  const handleSendSticker = (stickerId: string) => {
+    safeCall(() => conn.reducers.sendChatMessage({ content: stickerId, kind: "sticker" }));
+    setShowPicker(false);
+  };
+
+  const handleEmojiInsert = (emoji: string) => {
+    setChatInput((prev) => prev + emoji);
+  };
+
+  const myHex = identity.toHexString();
+  const canChat = step === "ready";
+
+  // Build unified timeline: chat messages + setup Q&As, sorted chronologically
+  type TimelineItem =
+    | { type: "chat"; msg: ChatMessage; ts: number }
+    | { type: "name_qa"; name: string; ts: number }
+    | { type: "business_qa"; name: string; businessType: string; ts: number };
+
+  const timeline: TimelineItem[] = [];
+
+  // Add chat messages
+  for (const msg of chatMessages) {
+    timeline.push({ type: "chat", msg, ts: Number(msg.sentAt) });
+  }
+
+  // Add completed setup answers at their timestamps
+  if (localPlayer?.name && nameAnsweredAt) {
+    timeline.push({ type: "name_qa", name: localPlayer.name, ts: nameAnsweredAt });
+  }
+  if (localPlayer?.businessType && businessAnsweredAt) {
+    timeline.push({
+      type: "business_qa",
+      name: localPlayer.name,
+      businessType: localPlayer.businessType,
+      ts: businessAnsweredAt,
+    });
+  }
+
+  timeline.sort((a, b) => a.ts - b.ts);
+
+  return (
+    <div className="min-h-screen bg-g-50 logo-bg flex items-center justify-center p-4">
+      <Android className="drop-shadow-2xl">
+        <div className="flex flex-col h-full bg-white text-g-900 relative">
+          <WAStatusBar />
+          <WAHeader
+            name={`${game.groupName} (${game.code})`}
+            avatar={<GrupaliaAvatar />}
+            subtitle={`${players.length} participant${players.length !== 1 ? "s" : ""}`}
+            verified
+          />
+
+          <WAChatBody>
+            <WADateDivider text="Today" />
+            <WASystemMessage>
+              Grupalia created this group
+            </WASystemMessage>
+
+            {/* Room info + share */}
+            <WAMessageIn
+              sender="Grupalia"
+              time={formatTime(Date.now())}
+              buttons={[
+                {
+                  label: "Share invite link",
+                  icon: (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8" />
+                      <polyline points="16 6 12 2 8 6" />
+                      <line x1="12" y1="2" x2="12" y2="15" />
+                    </svg>
+                  ),
+                  onClick: handleShare,
+                },
+              ]}
+            >
+              <p>
+                Grupo creado! Modo: <strong>{MODE_INFO[game.mode as GameMode]?.label || game.mode}</strong>{" "}
+                ({MODE_INFO[game.mode as GameMode]?.weeks || "?"} semanas)
+              </p>
+              <div className="mt-2">
+                <WALinkPreview
+                  title={`Unete a ${game.groupName} (${game.code})`}
+                  description={shareUrl}
+                  domain="ciclo.grupalia.com"
+                  color="#25D366"
+                  onClick={handleShare}
+                />
+              </div>
+            </WAMessageIn>
+
+            {/* Player join notifications */}
+            {players
+              .filter((p) => p.name)
+              .map((p) => (
+                <WASystemMessage key={p.id.toString()}>
+                  {p.name} joined{p.identity.toHexString() === myHex ? " (you)" : ""}
+                </WASystemMessage>
+              ))}
+
+            {/* Unified timeline: chat messages + setup Q&As in chronological order */}
+            {timeline.map((item, i) => {
+              const time = formatTime(item.ts);
+
+              if (item.type === "name_qa") {
+                return (
+                  <div key={`name-qa-${i}`}>
+                    <WAMessageIn sender="Grupalia" time={time}>Como te llamas?</WAMessageIn>
+                    <WAMessageOut time={time}>{item.name}</WAMessageOut>
+                  </div>
+                );
+              }
+
+              if (item.type === "business_qa") {
+                const info = BUSINESS_INFO[item.businessType as BusinessType];
+                return (
+                  <div key={`biz-qa-${i}`}>
+                    <WAMessageIn sender="Grupalia" time={time}>
+                      {item.name}, que negocio tienes?
+                    </WAMessageIn>
+                    <WAMessageOut time={time}>
+                      {info?.emoji} {info?.label}
+                    </WAMessageOut>
+                  </div>
+                );
+              }
+
+              // Chat message
+              const msg = item.msg;
+              const isMe = msg.senderIdentity.toHexString() === myHex;
+              if (isMe) {
+                return (
+                  <WAMessageOut key={msg.id.toString()} time={time}>
+                    {msg.kind === "sticker" ? (
+                      <StickerBubble stickerId={msg.content} customStickers={customStickers} />
+                    ) : (
+                      msg.content
+                    )}
+                  </WAMessageOut>
+                );
+              }
+              return (
+                <WAMessageIn key={msg.id.toString()} sender={msg.senderName} time={time}>
+                  {msg.kind === "sticker" ? (
+                    <StickerBubble stickerId={msg.content} customStickers={customStickers} />
+                  ) : (
+                    msg.content
+                  )}
+                </WAMessageIn>
+              );
+            })}
+
+            {/* Active prompt — only the current step, pinned at bottom */}
+            {step === "name" && (
+              <WAMessageIn sender="Grupalia" time={formatTime(Date.now())}>
+                Como te llamas? Escribe tu nombre abajo.
+              </WAMessageIn>
+            )}
+
+            {step === "business" && localPlayer?.name && (
+              <WAMessageIn sender="Grupalia" time={formatTime(Date.now())}>
+                <p className="mb-2">{localPlayer.name}, que negocio tienes?</p>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {(
+                    Object.entries(BUSINESS_INFO) as [BusinessType, { emoji: string; label: string }][]
+                  ).map(([type, info]) => (
+                    <button
+                      key={type}
+                      onClick={() => safeCall(() => conn.reducers.pickBusinessType({ businessType: type }))}
+                      className="
+                        flex flex-col items-center p-2 rounded-md
+                        border border-g-200 hover:border-wa-teal hover:bg-wa-teal/5
+                        transition-all text-center
+                      "
+                    >
+                      <span className="text-lg">{info.emoji}</span>
+                      <span className="text-[10px] text-g-600 mt-0.5">{info.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </WAMessageIn>
+            )}
+
+            {step === "ready" && isCreator && (
+              <WAMessageIn
+                sender="Grupalia"
+                time={formatTime(Date.now())}
+                buttons={[
+                  ...(players.length >= 2
+                    ? [{
+                        label: "Iniciar ciclo!",
+                        icon: (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polygon points="5 3 19 12 5 21 5 3" />
+                          </svg>
+                        ),
+                        onClick: () => safeCall(() => conn.reducers.startGame({})),
+                      }]
+                    : []),
+                ]}
+              >
+                {players.length < 2
+                  ? `Esperando jugadores... (${players.length}/2 minimo)`
+                  : `${players.length} jugadores listos!`}
+              </WAMessageIn>
+            )}
+
+            {step === "ready" && !isCreator && (
+              <WAMessageIn sender="Grupalia" time={formatTime(Date.now())}>
+                Esperando a que la anfitriona inicie el ciclo...
+              </WAMessageIn>
+            )}
+
+            <div ref={scrollRef} />
+          </WAChatBody>
+
+          {/* Sticker/Emoji picker */}
+          <div className="relative">
+            {showPicker && canChat && (
+              <StickerPicker
+                onSelectSticker={handleSendSticker}
+                onSelectEmoji={handleEmojiInsert}
+                onUploadSticker={(name, imageData) => {
+                  safeCall(() => conn.reducers.uploadSticker({ name, imageData }));
+                }}
+                onClose={() => setShowPicker(false)}
+                customStickers={customStickers}
+              />
+            )}
+
+            {/* Input bar */}
+            {step === "name" ? (
+              <WAInputBar
+                placeholder="Tu nombre..."
+                value={nameInput}
+                onChange={setNameInput}
+                onSend={handleSetName}
+              />
+            ) : canChat ? (
+              <WAInputBar
+                placeholder="Message..."
+                value={chatInput}
+                onChange={setChatInput}
+                onSend={handleSendChat}
+                onEmojiToggle={() => setShowPicker((v) => !v)}
+                emojiActive={showPicker}
+              />
+            ) : (
+              <WAInputBar disabled />
+            )}
+          </div>
+
+          <WAToast message={actionToast.message} visible={actionToast.visible} />
+          <WAToast message={errorToast.message} visible={errorToast.visible} />
+        </div>
+      </Android>
     </div>
   );
 }

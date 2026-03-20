@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="awning" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f87171"/>
+      <stop offset="100%" stop-color="#ef4444"/>
+    </linearGradient>
+  </defs>
+  <rect x="24" y="52" width="80" height="60" rx="4" fill="#fef3c7" stroke="#92400e" stroke-width="3"/>
+  <path d="M18 52h92l-6-20H24z" fill="url(#awning)" stroke="#b91c1c" stroke-width="2"/>
+  <path d="M18 52c4 10 12 10 16 0s12-10 16 0 12 10 16 0 12-10 16 0 12 10 16 0 12-10 16 0" fill="none" stroke="url(#awning)" stroke-width="6" stroke-linecap="round"/>
+  <rect x="40" y="72" width="20" height="24" rx="2" fill="#93c5fd" stroke="#92400e" stroke-width="2"/>
+  <line x1="50" y1="72" x2="50" y2="96" stroke="#92400e" stroke-width="1.5"/>
+  <line x1="40" y1="84" x2="60" y2="84" stroke="#92400e" stroke-width="1.5"/>
+  <rect x="72" y="78" width="20" height="16" rx="2" fill="#86efac" stroke="#92400e" stroke-width="2"/>
+  <text x="64" y="44" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" font-weight="bold" fill="#fff">TIENDA</text>
+</svg>

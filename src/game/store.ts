@@ -14,6 +14,7 @@ import { BASE_INCOME, FULL_PAYMENT } from "./types";
 
 export interface GameState {
   code: string;
+  groupName: string;
   status: GameStatus;
   mode: GameMode;
   weeksTotal: number;
@@ -53,14 +54,7 @@ export interface WeekResultState {
 const MORA_BASE = 45;
 const MORA_GROWTH = 15;
 
-function generateCode(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let code = "";
-  for (let i = 0; i < 5; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return code;
-}
+import { generateGroupName, generateCode } from "./helpers";
 
 export function useGameStore() {
   const [game, setGame] = useState<GameState | null>(null);
@@ -78,6 +72,7 @@ export function useGameStore() {
 
     setGame({
       code,
+      groupName: generateGroupName(),
       status: "lobby",
       mode,
       weeksTotal: mode === "experiencia" ? 4 : mode === "medio" ? 8 : 16,
@@ -107,6 +102,44 @@ export function useGameStore() {
     setWeekResults([]);
 
     return code;
+  }, []);
+
+  // Join an existing game by code (local-only: simulates joining, reuses same state)
+  // With SpacetimeDB this will be a real join. For now we create a local game
+  // with the given code and mark ourselves as non-creator.
+  const joinGame = useCallback((code: string) => {
+    const playerId = crypto.randomUUID();
+
+    setGame({
+      code,
+      groupName: code, // will be synced from host via SpacetimeDB later
+      status: "lobby",
+      mode: "experiencia",
+      weeksTotal: 4,
+      currentWeek: 0,
+      phase: "lobby",
+      phaseEndsAt: 0,
+      targetPayment: 0,
+      totalMora: 0,
+      weeksMissed: 0,
+    });
+
+    setPlayers([
+      {
+        id: playerId,
+        name: "",
+        businessType: "",
+        role: "member",
+        money: BASE_INCOME,
+        online: true,
+        isLocal: true,
+      },
+    ]);
+
+    setLocalPlayerId(playerId);
+    setIsCreator(false);
+    setPayments([]);
+    setWeekResults([]);
   }, []);
 
   const setName = useCallback(
@@ -370,6 +403,7 @@ export function useGameStore() {
     hasLocalPaid,
     graduationStatus,
     createGame,
+    joinGame,
     setName,
     pickBusinessType,
     addBot,

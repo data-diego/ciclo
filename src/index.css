@@ -1,11 +1,114 @@
 @import "tailwindcss";
 
+/* -- Grupalia brand palette -- */
+@theme {
+  --color-brand-50: #F7F3FF;
+  --color-brand-100: #EDE5FF;
+  --color-brand-200: #D4BBFF;
+  --color-brand-400: #B48BFA;
+  --color-brand-500: #955CF6;
+  --color-brand-600: #7C3AED;
+  --color-brand-700: #6928D9;
+  --color-brand-800: #5821B6;
+  --color-brand-900: #4A1D95;
+
+  /* Gray (Grupalia light scale) */
+  --color-g-25: #FCFCFD;
+  --color-g-50: #F8FAFC;
+  --color-g-100: #EEF2F6;
+  --color-g-200: #E3E8EF;
+  --color-g-300: #CDD5DF;
+  --color-g-400: #9AA4B2;
+  --color-g-500: #697586;
+  --color-g-600: #4B5565;
+  --color-g-700: #364152;
+  --color-g-800: #414651;
+  --color-g-900: #121926;
+  --color-g-950: #0D121C;
+
+  /* WhatsApp */
+  --color-wa-green: #25D366;
+  --color-wa-teal: #128C7E;
+  --color-wa-teal-dark: #075E54;
+  --color-wa-bubble-out: #DCF8C6;
+  --color-wa-chat-bg: #ECE5DD;
+  --color-wa-header: #075E54;
+  --color-wa-input: #F0F0F0;
+
+  /* Status (Grupalia) */
+  --color-ok-50: #ECFDF3;
+  --color-ok-100: #D1FADF;
+  --color-ok-500: #12B76A;
+  --color-ok-600: #079455;
+  --color-ok-700: #067647;
+
+  --color-err-50: #FEF3F2;
+  --color-err-100: #FEE4E2;
+  --color-err-500: #F04438;
+  --color-err-600: #D92D20;
+  --color-err-700: #B42318;
+
+  --color-warn-50: #FFFAEB;
+  --color-warn-100: #FEF0C7;
+  --color-warn-500: #F79009;
+  --color-warn-600: #DC6803;
+  --color-warn-700: #B54708;
+
+  /* Typography */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
+
+  /* Radius (Grupalia: 8px default) */
+  --radius-component: 8px;
+  --radius-card: 16px;
+  --radius-pill: 9999px;
+}
+
+/* -- Base styles -- */
+
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, sans-serif;
-  background: #f0f2f5;
+  font-family: var(--font-sans);
+  background: var(--color-g-50);
+  color: var(--color-g-900);
+  -webkit-font-smoothing: antialiased;
 }
 
 #root {
   min-height: 100vh;
+}
+
+/* Tilted repeating logo background */
+.logo-bg {
+  position: relative;
+}
+
+.logo-bg::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url('/logo-tile.svg');
+  background-size: 250px auto;
+  background-repeat: repeat;
+  opacity: 0.06;
+  transform: rotate(-30deg);
+  transform-origin: center center;
+  /* expand so rotation doesn't leave gaps */
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.logo-bg > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* WhatsApp chat background pattern */
+.wa-chat-bg {
+  background-color: var(--color-wa-chat-bg);
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23c7bfb5' fill-opacity='0.15'%3E%3Ccircle cx='8' cy='8' r='1.5'/%3E%3Ccircle cx='38' cy='22' r='1'/%3E%3Ccircle cx='22' cy='42' r='1.5'/%3E%3Ccircle cx='52' cy='52' r='1'/%3E%3C/g%3E%3C/svg%3E");
 }
