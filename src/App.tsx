@@ -11,11 +11,27 @@ function App() {
   const { getConnection, isActive, identity } = useSpacetimeDB();
   const conn = getConnection() as DbConnection | null;
 
-  // Track which game we're in
-  const [gameCode, setGameCode] = useState<string | null>(() => {
+  // Track which game we're in (URL param > localStorage > null)
+  const [gameCode, setGameCodeRaw] = useState<string | null>(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get("room");
+    return urlParams.get("room") || localStorage.getItem("ciclo_game_code");
   });
+
+  // Wrapper that persists gameCode to localStorage and updates URL
+  const setGameCode = (code: string | null) => {
+    setGameCodeRaw(code);
+    if (code) {
+      localStorage.setItem("ciclo_game_code", code);
+      const url = new URL(window.location.href);
+      url.searchParams.set("room", code);
+      window.history.replaceState({}, "", url.toString());
+    } else {
+      localStorage.removeItem("ciclo_game_code");
+      const url = new URL(window.location.href);
+      url.searchParams.delete("room");
+      window.history.replaceState({}, "", url.toString());
+    }
+  };
 
   // SpacetimeDB table subscriptions
   const [games] = useTable(tables.game);
