@@ -34,9 +34,9 @@ export function Results({ store }: { store: Store }) {
     },
   };
 
-  const grad = graduationConfig[graduationStatus];
+  const grad = graduationConfig[graduationStatus as keyof typeof graduationConfig];
 
-  const statusTextColor = {
+  const statusTextColor: Record<string, string> = {
     success: "text-ok-700",
     warning: "text-warn-700",
     error: "text-err-700",
