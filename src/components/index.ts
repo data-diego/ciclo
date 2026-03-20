@@ -5,6 +5,8 @@ export { ProgressBar } from "./ProgressBar";
 export { Input } from "./Input";
 export { AppHeader, ChatHeader } from "./Header";
 export { Android } from "./Android";
+export { PageLayout, useDarkMode, useSound } from "./PageLayout";
+export { WAGameStatus } from "./WAGameStatus";
 export {
   WAStatusBar,
   WAHeader,

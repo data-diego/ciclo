@@ -100,11 +100,35 @@ body {
   height: 200%;
   pointer-events: none;
   z-index: 0;
+  transition: filter 0.3s;
+}
+
+/* Invert tile pattern to white in dark mode */
+.logo-bg-dark::before {
+  filter: invert(1) brightness(2);
+  opacity: 0.08;
 }
 
 .logo-bg > * {
   position: relative;
   z-index: 1;
+}
+
+/* Buzz/vibrate animation for notifications */
+@keyframes buzz {
+  0%, 100% { transform: translateX(0); }
+  10% { transform: translateX(-3px) rotate(-2deg); }
+  20% { transform: translateX(3px) rotate(2deg); }
+  30% { transform: translateX(-3px) rotate(-1deg); }
+  40% { transform: translateX(3px) rotate(1deg); }
+  50% { transform: translateX(-2px) rotate(-1deg); }
+  60% { transform: translateX(2px) rotate(1deg); }
+  70% { transform: translateX(-1px); }
+  80% { transform: translateX(1px); }
+}
+
+.animate-buzz {
+  animation: buzz 0.6s ease-in-out;
 }
 
 /* WhatsApp chat background pattern */
