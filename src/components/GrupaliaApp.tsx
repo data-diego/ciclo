@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import confetti from "canvas-confetti";
 import type { BusinessType, PaymentChoice } from "../game/types";
 import { BUSINESS_INFO, LOAN_INFO, SOLIDARIO_MIN, SOLIDARIO_MAX, SOLIDARIO_STEP, SOLIDARIO_DEFAULT, g } from "../game/types";
 import { Button } from "./ui/button";
@@ -216,7 +217,7 @@ export function GrupaliaApp({
 
         {/* Resultado: advance button */}
         {game.status !== "finished" && game.subPhase === "resultado" && (
-          <div className="px-3 pb-2">
+          <div className="px-3 pb-2 space-y-1">
             <Button
               onClick={onMarkReady}
               size="sm"
@@ -224,6 +225,16 @@ export function GrupaliaApp({
             >
               {game.currentWeek >= game.weeksTotal ? "Ver resultados" : "Siguiente semana"}
             </Button>
+            {isCreator && (
+              <Button
+                onClick={onForceAdvance}
+                variant="ghost"
+                size="sm"
+                className="w-full text-[10px] text-g-400 hover:text-g-600 cursor-pointer"
+              >
+                Avanzar fase
+              </Button>
+            )}
           </div>
         )}
         {/* Creator force advance */}
@@ -245,168 +256,14 @@ export function GrupaliaApp({
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
 
         {/* FINISHED STATE */}
-        {game.status === "finished" && (() => {
-          const totalWeeks = weekResults.length;
-          const weeksPassed = weekResults.filter((r) => r.passed).length;
-          const weeksMissed = totalWeeks - weeksPassed;
-          const graduationStatus =
-            weeksMissed === 0 ? "graduado" : weeksMissed <= 3 ? "no_graduado" : "moroso";
-          const pn = localPlayer.pronoun;
-          const graduationConfig = {
-            graduado: {
-              emoji: "\u{1F393}",
-              label: g(pn, "GRADUADO", "GRADUADA", "GRADUADE"),
-              message: "0 pagos perdidos. El grupo sobrevivió el ciclo!",
-              color: "ok",
-            },
-            no_graduado: {
-              emoji: "\u{1F62C}",
-              label: g(pn, "NO GRADUADO", "NO GRADUADA", "NO GRADUADE"),
-              message: `${weeksMissed} pagos tardíos. Sobrevivieron... apenas.`,
-              color: "warn",
-            },
-            moroso: {
-              emoji: "\u{1F480}",
-              label: g(pn, "MOROSO", "MOROSA", "MOROSE"),
-              message: `${weeksMissed} pagos perdidos. El grupo no sobrevivió.`,
-              color: "err",
-            },
-          };
-          const grad = graduationConfig[graduationStatus];
-          const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
-
-          return (
-            <>
-              {/* Graduation card */}
-              <Card>
-                <div className="px-4 py-5 text-center">
-                  <span className="text-5xl block mb-3">{grad.emoji}</span>
-                  <p className="text-[18px] font-bold text-g-900 mb-1">{grad.label}</p>
-                  <p className="text-[13px] text-g-600">{grad.message}</p>
-                  {game.totalMora > 0 && (
-                    <p className="text-[12px] text-err-600 font-medium mt-2">
-                      Mora total acumulada: ${game.totalMora}
-                    </p>
-                  )}
-                </div>
-              </Card>
-
-              {/* Week summary */}
-              <Card>
-                <SectionHeader title="Resumen del ciclo" />
-                <div className="px-4 pb-2">
-                  <div className="flex justify-center gap-3 mb-3">
-                    <CounterField value={`${weeksPassed}`} label="Cumplidos" />
-                    <CounterField value={`${weeksMissed}`} label="Perdidos" />
-                    <CounterField value={`${totalWeeks}`} label="Total" />
-                  </div>
-                  <div className="flex gap-1 justify-center flex-wrap">
-                    {weekResults.map((r) => (
-                      <div
-                        key={r.week}
-                        className={`w-7 h-7 rounded flex items-center justify-center text-[10px] font-mono font-bold ${
-                          r.passed ? "bg-ok-100 text-ok-700" : "bg-red-100 text-red-700"
-                        }`}
-                      >
-                        {r.week}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </Card>
-
-              {/* Final ranking */}
-              <Card>
-                <div className="px-4 pt-3 pb-1">
-                  <p className="text-[15px] font-semibold text-g-900">{"\u{1F3C6}"} Ranking final</p>
-                </div>
-                <div className="px-3 pb-3 space-y-1">
-                  {sortedPlayers.map((p, i) => {
-                    const pbt = p.businessType as BusinessType;
-                    const pinfo = pbt ? BUSINESS_INFO[pbt] : null;
-                    const plsInfo = LOAN_INFO[p.loanSize as keyof typeof LOAN_INFO];
-                    const isMe = p.identity.toHexString() === myHex;
-                    return (
-                      <div
-                        key={p.id.toString()}
-                        className={`flex items-center justify-between py-1.5 px-2.5 rounded-lg text-[12px] ${
-                          isMe ? "bg-brand-50 border border-brand-100" : "bg-g-50"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-[10px] font-bold text-g-400 w-3 text-right font-mono">{i + 1}</span>
-                          <span>{pinfo?.emoji || "\u2753"}</span>
-                          <div className="min-w-0">
-                            <span className={`font-medium truncate block ${isMe ? "text-brand-700" : "text-g-900"}`}>
-                              {p.name || "..."}
-                            </span>
-                            <p className="text-[10px] text-g-500">{pinfo?.label} — {plsInfo?.emoji} ${plsInfo?.credit.toLocaleString()}</p>
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end shrink-0">
-                          <span className="font-mono font-bold text-g-700">{p.score} pts</span>
-                          <span className="font-mono text-g-400 text-[11px]">${p.money.toLocaleString()}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </Card>
-
-              {/* Secret objectives reveal */}
-              {secretObjectives.length > 0 && (
-                <Card>
-                  <div className="px-4 pt-3 pb-1">
-                    <p className="text-[15px] font-semibold text-g-900">{"\u{1F3AF}"} Objetivos secretos</p>
-                  </div>
-                  <div className="px-3 pb-3 space-y-2">
-                    {secretObjectives.map((obj) => {
-                      const player = players.find(
-                        (p) => p.identity.toHexString() === obj.playerIdentity.toHexString()
-                      );
-                      const obt = player?.businessType as BusinessType;
-                      const oinfo = obt ? BUSINESS_INFO[obt] : null;
-                      return (
-                        <div
-                          key={obj.id.toString()}
-                          className={`px-2.5 py-2 rounded-lg border ${
-                            obj.completed
-                              ? "bg-ok-50 border-ok-100"
-                              : "bg-red-50 border-red-200"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-sm">{oinfo?.emoji}</span>
-                            <span className="text-[13px] font-medium text-g-900">{player?.name}</span>
-                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                              obj.completed ? "bg-ok-100 text-ok-700" : "bg-red-100 text-red-700"
-                            }`}>
-                              {obj.completed ? "CUMPLIDO" : "NO"}
-                            </span>
-                          </div>
-                          <p className="text-[12px] text-g-600">{obj.description}</p>
-                          {obj.completed && (
-                            <p className="text-[11px] text-ok-600 font-medium mt-0.5">
-                              +{obj.bonusScore} pts bonus!
-                            </p>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </Card>
-              )}
-
-              {/* Play again */}
-              <button
-                onClick={() => window.location.reload()}
-                className="w-full py-3 rounded-lg text-[14px] font-semibold text-white bg-brand-600 hover:bg-brand-700 transition-colors cursor-pointer"
-              >
-                Jugar de nuevo
-              </button>
-            </>
-          );
-        })()}
+        {game.status === "finished" && <FinishedResults
+          localPlayer={localPlayer}
+          players={players}
+          weekResults={weekResults}
+          secretObjectives={secretObjectives}
+          game={game}
+          myHex={myHex}
+        />}
 
         {/* Sub-phase banner */}
         {game.status !== "finished" && subPhaseInfo && (
@@ -898,5 +755,265 @@ export function GrupaliaApp({
         </div>
       )}
     </div>
+  );
+}
+
+// --- Finished Results Component ---
+
+function FinishedResults({
+  localPlayer,
+  players,
+  weekResults,
+  secretObjectives,
+  game,
+  myHex,
+}: {
+  localPlayer: Player;
+  players: readonly Player[];
+  weekResults: readonly WeekResult[];
+  secretObjectives: readonly SecretObjective[];
+  game: GameT;
+  myHex: string;
+}) {
+  const confettiFired = useRef(false);
+
+  const totalWeeks = weekResults.length;
+  const weeksPassed = weekResults.filter((r) => r.passed).length;
+  const weeksMissed = totalWeeks - weeksPassed;
+  const graduationStatus =
+    weeksMissed === 0 ? "graduado" : weeksMissed <= 3 ? "no_graduado" : "moroso";
+  const pn = localPlayer.pronoun;
+  const graduationConfig = {
+    graduado: {
+      icon: (
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-brand-600 mx-auto">
+          <path d="M22 10v6M2 10l10-5 10 5-10 5z" /><path d="M6 12v5c0 1.66 2.69 3 6 3s6-1.34 6-3v-5" />
+        </svg>
+      ),
+      label: g(pn, "GRADUADO", "GRADUADA", "GRADUADE"),
+      message: "0 pagos perdidos. El grupo sobrevivi\u00F3 el ciclo!",
+      bg: "bg-brand-50",
+      border: "border-brand-200",
+      textColor: "text-brand-700",
+    },
+    no_graduado: {
+      icon: (
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-warn-600 mx-auto">
+          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+        </svg>
+      ),
+      label: g(pn, "NO GRADUADO", "NO GRADUADA", "NO GRADUADE"),
+      message: `${weeksMissed} pagos tard\u00EDos. Sobrevivieron... apenas.`,
+      bg: "bg-warn-50",
+      border: "border-warn-100",
+      textColor: "text-warn-700",
+    },
+    moroso: {
+      icon: (
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-err-600 mx-auto">
+          <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" /><path d="M16 16s-1.5-2-4-2-4 2-4 2" /><line x1="9" y1="9" x2="9.01" y2="9" strokeWidth="3" strokeLinecap="round" /><line x1="15" y1="9" x2="15.01" y2="9" strokeWidth="3" strokeLinecap="round" />
+        </svg>
+      ),
+      label: g(pn, "MOROSO", "MOROSA", "MOROSE"),
+      message: `${weeksMissed} pagos perdidos. El grupo no sobrevivi\u00F3.`,
+      bg: "bg-err-50",
+      border: "border-err-100",
+      textColor: "text-err-700",
+    },
+  };
+  const grad = graduationConfig[graduationStatus];
+  const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
+  const winner = sortedPlayers[0];
+  const winnerInfo = winner?.businessType ? BUSINESS_INFO[winner.businessType as BusinessType] : null;
+
+  useEffect(() => {
+    if (confettiFired.current) return;
+    confettiFired.current = true;
+    const duration = 2500;
+    const end = Date.now() + duration;
+    const colors = ["#7C3AED", "#B48BFA", "#F7F3FF", "#FFD700", "#12B76A"];
+
+    const frame = () => {
+      confetti({
+        particleCount: 3,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0, y: 0.6 },
+        colors,
+      });
+      confetti({
+        particleCount: 3,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1, y: 0.6 },
+        colors,
+      });
+      if (Date.now() < end) requestAnimationFrame(frame);
+    };
+    frame();
+  }, []);
+
+  return (
+    <>
+      {/* Winner spotlight */}
+      <Card>
+        <div className="relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-b from-brand-100/60 via-brand-50/30 to-transparent" />
+          <div className="relative px-4 pt-6 pb-5 text-center">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-brand-500 mx-auto mb-1">
+              <path d="M2 4l3 12h14l3-12-6 7-4-9-4 9-6-7z" /><path d="M5 16v2a2 2 0 002 2h10a2 2 0 002-2v-2" />
+            </svg>
+            <p className="text-[20px] font-bold text-brand-700 mb-2">{winner?.name}</p>
+            <p className="text-[28px] font-bold font-mono text-brand-600 leading-tight">
+              {winner?.score} pts
+            </p>
+            <p className="text-[12px] text-g-500 mt-1">
+              {winnerInfo?.label} {"\u00B7"} ${winner?.money.toLocaleString()} finales
+            </p>
+          </div>
+        </div>
+      </Card>
+
+      {/* Graduation status */}
+      <Card>
+        <div className={`px-4 py-4 text-center border-l-4 ${grad.border} ${grad.bg} rounded-[var(--radius-card)]`}>
+          <div className="mb-2">{grad.icon}</div>
+          <p className={`text-[16px] font-bold ${grad.textColor} mb-0.5`}>{grad.label}</p>
+          <p className="text-[13px] text-g-600">{grad.message}</p>
+          {game.totalMora > 0 && (
+            <p className="text-[12px] text-err-600 font-medium mt-2">
+              Mora total: ${game.totalMora}
+            </p>
+          )}
+        </div>
+      </Card>
+
+      {/* Week summary */}
+      <Card>
+        <SectionHeader title="Resumen del ciclo" />
+        <div className="px-4 pb-3">
+          <div className="flex justify-center gap-3 mb-3">
+            <CounterField value={`${weeksPassed}`} label="Cumplidos" />
+            <CounterField value={`${weeksMissed}`} label="Perdidos" />
+            <CounterField value={`${totalWeeks}`} label="Total" />
+          </div>
+          <div className="flex gap-1 justify-center flex-wrap">
+            {weekResults.map((r) => (
+              <div
+                key={r.week}
+                className={`w-7 h-7 rounded-[var(--radius-component)] flex items-center justify-center text-[10px] font-mono font-bold ${
+                  r.passed ? "bg-ok-100 text-ok-700" : "bg-err-100 text-err-700"
+                }`}
+              >
+                {r.week}
+              </div>
+            ))}
+          </div>
+        </div>
+      </Card>
+
+      {/* Final ranking */}
+      <Card>
+        <SectionHeader title="Ranking final" />
+        <div className="px-3 pb-3 space-y-1.5">
+          {sortedPlayers.map((p, i) => {
+            const pbt = p.businessType as BusinessType;
+            const pinfo = pbt ? BUSINESS_INFO[pbt] : null;
+            const plsInfo = LOAN_INFO[p.loanSize as keyof typeof LOAN_INFO];
+            const isMe = p.identity.toHexString() === myHex;
+            const isWinner = i === 0;
+            return (
+              <div
+                key={p.id.toString()}
+                className={`flex items-center justify-between py-2 px-3 rounded-[var(--radius-component)] text-[12px] transition-colors ${
+                  isWinner
+                    ? "bg-brand-50 border border-brand-200 shadow-[var(--shadow-xs)]"
+                    : isMe
+                      ? "bg-brand-50/50 border border-brand-100"
+                      : "bg-g-50"
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className={`font-bold w-4 text-right font-mono ${
+                    isWinner ? "text-brand-600" : "text-g-400"
+                  }`}>
+                    {isWinner ? (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="inline-block">
+                        <path d="M2 4l3 12h14l3-12-6 7-4-9-4 9-6-7z" /><path d="M5 16v2a2 2 0 002 2h10a2 2 0 002-2v-2" />
+                      </svg>
+                    ) : <span className="text-[11px]">{i + 1}</span>}
+                  </span>
+                  <span className="text-sm">{pinfo?.emoji || "?"}</span>
+                  <div className="min-w-0">
+                    <span className={`font-medium truncate block ${
+                      isWinner ? "text-brand-700" : isMe ? "text-brand-600" : "text-g-900"
+                    }`}>
+                      {p.name || "..."}
+                      {isMe && <span className="text-[10px] text-g-400 ml-1">(t{"\u00FA"})</span>}
+                    </span>
+                    <p className="text-[10px] text-g-500">
+                      {pinfo?.label} {"\u00B7"} {plsInfo?.emoji} ${plsInfo?.credit.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-col items-end shrink-0">
+                  <span className={`font-mono font-bold ${isWinner ? "text-brand-700" : "text-g-700"}`}>
+                    {p.score} pts
+                  </span>
+                  <span className="font-mono text-g-400 text-[11px]">${p.money.toLocaleString()}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      {/* Secret objectives reveal */}
+      {secretObjectives.length > 0 && (
+        <Card>
+          <SectionHeader title="Objetivos secretos" subtitle="Revelados al final del ciclo" />
+          <div className="px-3 pb-3 space-y-2">
+            {secretObjectives.map((obj) => {
+              const player = players.find(
+                (p) => p.identity.toHexString() === obj.playerIdentity.toHexString()
+              );
+              return (
+                <div
+                  key={obj.id.toString()}
+                  className={`px-3 py-2.5 rounded-[var(--radius-component)] border ${
+                    obj.completed
+                      ? "bg-ok-50 border-ok-100"
+                      : "bg-g-50 border-g-200"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[13px] font-medium text-g-900">{player?.name}</span>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-[var(--radius-pill)] ${
+                      obj.completed ? "bg-ok-100 text-ok-700" : "bg-g-100 text-g-500"
+                    }`}>
+                      {obj.completed ? "CUMPLIDO" : "NO CUMPLIDO"}
+                    </span>
+                  </div>
+                  <p className="text-[12px] text-g-600">{obj.description}</p>
+                  {obj.completed && (
+                    <p className="text-[11px] text-ok-600 font-medium mt-0.5">
+                      +{obj.bonusScore} pts bonus!
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
+      {/* Play again */}
+      <Button
+        onClick={() => window.location.reload()}
+        className="w-full py-3 text-[14px] font-semibold bg-brand-600 hover:bg-brand-700 text-white cursor-pointer"
+      >
+        Jugar de nuevo
+      </Button>
+    </>
   );
 }
