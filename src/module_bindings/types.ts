@@ -29,6 +29,7 @@ export const ChatMessage = __t.object("ChatMessage", {
   content: __t.string(),
   kind: __t.string(),
   sentAt: __t.u64(),
+  week: __t.u32(),
 });
 export type ChatMessage = __Infer<typeof ChatMessage>;
 
@@ -48,6 +49,7 @@ export const Game = __t.object("Game", {
   creator: __t.identity(),
   status: __t.string(),
   mode: __t.string(),
+  difficulty: __t.string(),
   weeksTotal: __t.u32(),
   currentWeek: __t.u32(),
   phase: __t.string(),

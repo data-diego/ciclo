@@ -14,4 +14,5 @@ export default {
   code: __t.string(),
   groupName: __t.string(),
   mode: __t.string(),
+  difficulty: __t.string(),
 };

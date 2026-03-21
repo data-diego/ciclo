@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import type { GameMode, BusinessType, LoanSize } from "../game/types";
-import { BUSINESS_INFO, MODE_INFO, LOAN_INFO, TASA_PER_MIL, calcWeeklyPayment, calcTotalPayback, g } from "../game/types";
+import type { GameMode, Difficulty, BusinessType, LoanSize } from "../game/types";
+import { BUSINESS_INFO, MODE_INFO, DIFFICULTY_INFO, LOAN_INFO, TASA_PER_MIL, TASA_BY_DIFFICULTY, calcWeeklyPayment, calcTotalPayback, g } from "../game/types";
 import { generateCode, generateGroupName } from "../game/helpers";
 import { Android } from "../components/Android";
 import {
@@ -19,7 +19,7 @@ import {
 import type { DbConnection } from "../module_bindings";
 import type { Identity } from "spacetimedb";
 import type { Game, Player, ChatMessage, CustomSticker } from "../module_bindings/types";
-import { StickerPicker, StickerBubble } from "../components/StickerPicker";
+import { StickerPicker, StickerBubble, EMOJI_ROWS } from "../components/StickerPicker";
 
 // --- Props ---
 
@@ -174,7 +174,8 @@ function CreateFlow({
   safeCall: SafeCall;
   errorToast: { message: string; visible: boolean };
 }) {
-  const [step, setStep] = useState<"typing_intro" | "intro" | "pick_mode">("typing_intro");
+  const [step, setStep] = useState<"typing_intro" | "intro" | "pick_difficulty" | "pick_mode">("typing_intro");
+  const [difficulty, setDifficulty] = useState<Difficulty | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -186,11 +187,16 @@ function CreateFlow({
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [step]);
 
+  const handlePickDifficulty = (d: Difficulty) => {
+    setDifficulty(d);
+    setStep("pick_mode");
+  };
+
   const handlePickMode = (mode: GameMode) => {
     const code = generateCode();
     const groupName = generateGroupName();
     safeCall(() => {
-      conn.reducers.createGame({ code, groupName, mode });
+      conn.reducers.createGame({ code, groupName, mode, difficulty: difficulty! });
       setGameCode(code);
     });
   };
@@ -230,35 +236,79 @@ function CreateFlow({
                               <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
                             </svg>
                           ),
-                          onClick: () => setStep("pick_mode"),
+                          onClick: () => setStep("pick_difficulty"),
                         },
                       ]
                     : undefined
                 }
               >
-                <p>Hola! Soy tu promotor de <strong>Grupalia</strong>.</p>
+                <p>Hola! Soy tu promotora de <strong>Grupalia</strong>.</p>
                 <p className="mt-1.5">
-                  Estás listo para iniciar un nuevo ciclo de crédito grupal?
-                  Junta a tu grupo y empecemos.
+                  ¿Estás lista para iniciar un nuevo ciclo de crédito grupal?
+                  Junta a tu grupo y empecemos la experiencia.
                 </p>
               </WAMessageIn>
             )}
 
-            {/* Mode picker */}
-            {step === "pick_mode" && (
+            {/* Difficulty picker — WhatsApp quick reply buttons */}
+            {(step === "pick_difficulty" || step === "pick_mode") && (
               <>
-                <WAMessageOut time={formatTime(Date.now())}>Sí, quiero crear un grupo!</WAMessageOut>
-                <WAMessageIn
-                  time={formatTime(Date.now())}
-                  buttons={(
-                    Object.entries(MODE_INFO) as [GameMode, { label: string; weeks: number }][]
-                  ).map(([mode, info]) => ({
-                    label: `${info.label} (${info.weeks} sem)`,
-                    onClick: () => handlePickMode(mode),
-                  }))}
-                >
-                  Qué tipo de ciclo quieres?
+                <WAMessageOut time={formatTime(Date.now())}>Sí, quiero crear un grupo</WAMessageOut>
+                <WAMessageIn time={formatTime(Date.now())}>
+                  <p>¡Qué bueno! 💜 Aquí van a sentir lo que viven nuestras clientas en un ciclo de crédito grupal. Hay que pagar, apoyarse y sobrevivir los imprevistos.</p>
                 </WAMessageIn>
+                <WAMessageIn time={formatTime(Date.now())}>
+                  <p>¿Qué nivel de dificultad quieres?</p>
+                </WAMessageIn>
+                <div className="flex flex-wrap gap-1.5 mt-1 px-0">
+                  {(
+                    Object.entries(DIFFICULTY_INFO) as [Difficulty, { label: string; emoji: string; desc: string }][]
+                  ).map(([d, info]) => (
+                    <button
+                      key={d}
+                      onClick={() => handlePickDifficulty(d)}
+                      className={`
+                        inline-flex items-center py-2 px-3 rounded-lg text-center text-[13px]
+                        border shadow-sm transition-all cursor-pointer
+                        ${difficulty === d
+                          ? "border-wa-teal bg-wa-teal text-white font-medium shadow-none"
+                          : "border-[#D1D7DB] bg-white text-wa-teal hover:bg-gray-50"
+                        }
+                      `}
+                    >
+                      {info.emoji} {info.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Mode picker */}
+            {step === "pick_mode" && difficulty && (
+              <>
+                <WAMessageOut time={formatTime(Date.now())}>
+                  {DIFFICULTY_INFO[difficulty].emoji} {DIFFICULTY_INFO[difficulty].label}
+                </WAMessageOut>
+                <WAMessageIn time={formatTime(Date.now())}>
+                  <p>¿Cuánto tiempo quieres jugar?</p>
+                </WAMessageIn>
+                <div className="flex flex-wrap gap-1.5 mt-1 px-0">
+                  {(
+                    Object.entries(MODE_INFO) as [GameMode, (typeof MODE_INFO)[GameMode]][]
+                  ).map(([mode, info]) => (
+                    <button
+                      key={mode}
+                      onClick={() => handlePickMode(mode)}
+                      className="
+                        inline-flex items-center gap-1 py-2 px-3 rounded-lg text-[13px]
+                        border border-[#D1D7DB] bg-white text-wa-teal shadow-sm
+                        hover:bg-gray-50 transition-all cursor-pointer
+                      "
+                    >
+                      {info.emoji} {info.label} <span className="text-g-500 text-[11px]">~{info.durationMin}min</span>
+                    </button>
+                  ))}
+                </div>
               </>
             )}
 
@@ -334,13 +384,13 @@ function JoinFlow({
             {step !== "typing_intro" && (
               <WAMessageIn
                 time={formatTime(Date.now())}
-                buttons={[{ label: "Unirme al grupo", onClick: handleJoinGroup }]}
+                buttons={[{ label: "Unirme al grupo", icon: (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="13" y1="11" x2="21" y2="3" /></svg>), onClick: handleJoinGroup }]}
               >
                 <p>Te invitaron a un grupo de crédito en <strong>Grupalia</strong>!</p>
                 <div className="mt-2">
                   <WALinkPreview
-                    title={game ? `Únete a ${game.groupName}` : "Únete a un grupo de Grupalia"}
-                    description={game ? `${MODE_INFO[game.mode as GameMode]?.label} - ${MODE_INFO[game.mode as GameMode]?.weeks} semanas` : "Tap para unirte al ciclo"}
+                    title={game ? `Únete a ${game.groupName} (${game.code})` : "Únete a un grupo de Grupalia"}
+                    description={game ? `${MODE_INFO[game.mode as GameMode]?.label}  ~${MODE_INFO[game.mode as GameMode]?.durationMin} min` : "Tap para unirte al ciclo"}
                     domain="ciclo.datadiego.com"
                     onClick={handleJoinGroup}
                   />
@@ -391,6 +441,9 @@ function WaitingRoom({
   const [step, setStep] = useState<"name" | "pronoun" | "business" | "loan" | "ready">("name");
   const actionToast = useToast();
   const [showPicker, setShowPicker] = useState(false);
+  const [businessInfoOpen, setBusinessInfoOpen] = useState<BusinessType | null>(null);
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [renameInput, setRenameInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const promptRef = useRef<HTMLDivElement>(null);
 
@@ -505,7 +558,7 @@ function WaitingRoom({
     timeline.push({ type: "name_qa", name: localPlayer.name, ts: nameAnsweredAt });
   }
   if (localPlayer?.pronoun && pronounAnsweredAt) {
-    const pronounLabel = localPlayer.pronoun === "f" ? "Ella" : localPlayer.pronoun === "m" ? "Él" : "Neutral";
+    const pronounLabel = localPlayer.pronoun === "f" ? "👩 Ella" : localPlayer.pronoun === "m" ? "👨 Él" : "🧑 Neutral";
     timeline.push({ type: "pronoun_qa", name: localPlayer.name, pronoun: pronounLabel, ts: pronounAnsweredAt });
   }
   if (localPlayer?.businessType && businessAnsweredAt) {
@@ -537,6 +590,7 @@ function WaitingRoom({
             avatar={<GroupAvatar />}
             subtitle={`${players.length} participant${players.length !== 1 ? "s" : ""}`}
             verified
+            onNameClick={isCreator && game.status === "lobby" ? () => { setRenameInput(game.groupName); setShowRenameModal(true); } : undefined}
           />
 
           <WAChatBody>
@@ -594,7 +648,7 @@ function WaitingRoom({
               if (item.type === "name_qa") {
                 return (
                   <div key={`name-qa-${i}`} className="space-y-1.5">
-                    <WAMessageIn sender="Grupalia" time={time}>Cómo te llamas?</WAMessageIn>
+                    <WAMessageIn sender="Grupalia" time={time}>¿Cómo te llamas?</WAMessageIn>
                     <WAMessageOut time={time}>{item.name}</WAMessageOut>
                   </div>
                 );
@@ -627,7 +681,8 @@ function WaitingRoom({
 
               if (item.type === "loan_qa") {
                 const lsInfo = LOAN_INFO[item.loanSize as LoanSize];
-                const weekly = lsInfo ? calcWeeklyPayment(lsInfo.credit, game.weeksTotal) : 0;
+                const gameTasa = TASA_BY_DIFFICULTY[game.difficulty as keyof typeof TASA_BY_DIFFICULTY] || TASA_PER_MIL;
+                const weekly = lsInfo ? calcWeeklyPayment(lsInfo.credit, game.weeksTotal, gameTasa) : 0;
                 return (
                   <div key={`loan-qa-${i}`} className="space-y-1.5">
                     <WAMessageIn sender="Grupalia" time={time}>
@@ -669,14 +724,16 @@ function WaitingRoom({
             <div ref={promptRef} />
             {step === "name" && (
               <WAMessageIn sender="Grupalia" time={formatTime(Date.now())}>
-                Cómo te llamas? Escribe tu nombre abajo.
+                ¿Cómo te llamas? Escribe tu nombre abajo.
               </WAMessageIn>
             )}
 
             {step === "pronoun" && localPlayer?.name && (
-              <WAMessageIn sender="Grupalia" time={formatTime(Date.now())}>
-                <p className="mb-2">{localPlayer.name}, cómo te identificas?</p>
-                <div className="flex gap-2">
+              <>
+                <WAMessageIn sender="Grupalia" time={formatTime(Date.now())}>
+                  <p>{localPlayer.name}, ¿Cómo te identificas?</p>
+                </WAMessageIn>
+                <div className="flex flex-wrap gap-1.5 mt-1 px-0">
                   {([
                     { value: "f", label: "Ella", emoji: "👩" },
                     { value: "m", label: "Él", emoji: "👨" },
@@ -686,83 +743,139 @@ function WaitingRoom({
                       key={opt.value}
                       onClick={() => safeCall(() => conn.reducers.setPronoun({ pronoun: opt.value }))}
                       className="
-                        flex-1 flex flex-col items-center p-2 rounded-md
-                        border border-g-200 hover:border-wa-teal hover:bg-wa-teal/5
-                        transition-all text-center
+                        inline-flex items-center py-2 px-3 rounded-lg text-[13px]
+                        border border-[#D1D7DB] bg-white text-wa-teal shadow-sm
+                        hover:bg-gray-50 transition-all cursor-pointer
                       "
                     >
-                      <span className="text-lg">{opt.emoji}</span>
-                      <span className="text-[11px] text-g-600 mt-0.5">{opt.label}</span>
+                      {opt.emoji} {opt.label}
                     </button>
                   ))}
                 </div>
-              </WAMessageIn>
+              </>
             )}
 
             {step === "business" && localPlayer?.name && (
-              <WAMessageIn sender="Grupalia" time={formatTime(Date.now())}>
-                <p className="mb-2">{localPlayer.name}, qué negocio tienes?</p>
-                <div className="grid grid-cols-3 gap-1.5">
+              <>
+                <WAMessageIn sender="Grupalia" time={formatTime(Date.now())}>
+                  <p>{localPlayer.name}, ¿Qué tipo de negocio tienes?</p>
+                </WAMessageIn>
+                <div className="flex flex-wrap gap-1.5 mt-1 px-0">
                   {(
-                    Object.entries(BUSINESS_INFO) as [BusinessType, { emoji: string; label: string }][]
+                    Object.entries(BUSINESS_INFO) as [BusinessType, (typeof BUSINESS_INFO)[BusinessType]][]
                   ).map(([type, info]) => (
-                    <button
-                      key={type}
-                      onClick={() => safeCall(() => conn.reducers.pickBusinessType({ businessType: type }))}
-                      className="
-                        flex flex-col items-center p-2 rounded-md
-                        border border-g-200 hover:border-wa-teal hover:bg-wa-teal/5
-                        transition-all text-center
-                      "
-                    >
-                      <span className="text-lg">{info.emoji}</span>
-                      <span className="text-[10px] text-g-600 mt-0.5">{info.label}</span>
-                    </button>
+                    <div key={type} className="inline-flex items-center">
+                      <button
+                        onClick={() => safeCall(() => conn.reducers.pickBusinessType({ businessType: type }))}
+                        className="
+                          inline-flex items-center gap-1 py-2 px-3 rounded-lg text-[13px]
+                          border border-[#D1D7DB] bg-white text-wa-teal shadow-sm
+                          hover:bg-gray-50 transition-all cursor-pointer
+                        "
+                      >
+                        {info.emoji} {info.label}
+                        <span
+                          role="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setBusinessInfoOpen(type);
+                          }}
+                          className="ml-0.5 text-g-400 hover:text-g-600 cursor-pointer"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" />
+                          </svg>
+                        </span>
+                      </button>
+                    </div>
                   ))}
                 </div>
-              </WAMessageIn>
+
+                {/* Business info modal */}
+                {businessInfoOpen && (() => {
+                  const bi = BUSINESS_INFO[businessInfoOpen];
+                  const diffColor =
+                    bi.difficulty === "Favorable" ? "bg-green-50 text-green-700 border-green-200" :
+                    bi.difficulty === "Equilibrado" ? "bg-blue-50 text-blue-700 border-blue-200" :
+                    bi.difficulty === "Riesgoso" ? "bg-amber-50 text-amber-700 border-amber-200" :
+                    "bg-red-50 text-red-700 border-red-200";
+                  return (
+                    <div
+                      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+                      onClick={() => setBusinessInfoOpen(null)}
+                    >
+                      <div
+                        className="bg-white rounded-xl p-5 mx-6 max-w-xs w-full shadow-xl"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="text-center mb-3">
+                          <span className="text-3xl">{bi.emoji}</span>
+                          <h3 className="text-[16px] font-semibold text-g-900 mt-1">{bi.label}</h3>
+                          <span className={`inline-flex items-center gap-1 mt-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${diffColor}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${
+                              bi.difficulty === "Favorable" ? "bg-green-500" :
+                              bi.difficulty === "Equilibrado" ? "bg-blue-500" :
+                              bi.difficulty === "Riesgoso" ? "bg-amber-500" :
+                              "bg-red-500"
+                            }`} />
+                            {bi.difficulty}
+                          </span>
+                        </div>
+                        <p className="text-[13px] text-g-600 text-center mb-4">{bi.desc}</p>
+                        <div className="space-y-2 mb-4">
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-50 border border-green-100">
+                            <span className="text-[11px] font-medium text-green-700">Evento positivo</span>
+                            <span className="ml-auto text-[13px] font-semibold text-green-700">{bi.positive}</span>
+                          </div>
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-100">
+                            <span className="text-[11px] font-medium text-red-700">Evento negativo</span>
+                            <span className="ml-auto text-[13px] font-semibold text-red-700">{bi.negative}</span>
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-g-400 text-center mb-3">Cada semana puede pasar un evento aleatorio en tu negocio</p>
+                        <button
+                          onClick={() => setBusinessInfoOpen(null)}
+                          className="w-full py-2 rounded-lg text-[14px] font-medium text-wa-teal border border-[#D1D7DB] hover:bg-gray-50 transition-colors cursor-pointer"
+                        >
+                          Cerrar
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </>
             )}
 
             {step === "loan" && localPlayer?.name && (
-              <WAMessageIn sender="Grupalia" time={formatTime(Date.now())}>
-                <p className="mb-2">{localPlayer.name}, cuánto crédito necesitas?</p>
-                <p className="text-[11px] text-g-500 mb-3">Tasa: ${TASA_PER_MIL} pesos por cada mil</p>
-                <div className="space-y-2">
+              <>
+                <WAMessageIn sender="Grupalia" time={formatTime(Date.now())}>
+                  <p>{localPlayer.name}, ¿Cuánto crédito necesitas?</p>
+                  <p className="text-[11px] text-g-500 mt-1">Tasa: ${TASA_BY_DIFFICULTY[game.difficulty as keyof typeof TASA_BY_DIFFICULTY] || TASA_PER_MIL} pesos por cada mil</p>
+                </WAMessageIn>
+                <div className="flex flex-wrap gap-1.5 mt-1 px-0">
                   {(
                     Object.entries(LOAN_INFO) as [LoanSize, { label: string; emoji: string; credit: number }][]
                   ).map(([size, info]) => {
-                    const total = Math.round(calcTotalPayback(info.credit));
-                    const weekly = calcWeeklyPayment(info.credit, game.weeksTotal);
+                    const tasa = TASA_BY_DIFFICULTY[game.difficulty as keyof typeof TASA_BY_DIFFICULTY] || TASA_PER_MIL;
+                    const weekly = calcWeeklyPayment(info.credit, game.weeksTotal, tasa);
                     return (
                       <button
                         key={size}
                         onClick={() => safeCall(() => conn.reducers.pickLoanSize({ loanSize: size }))}
                         className="
-                          w-full flex items-center gap-3 p-3 rounded-lg
-                          border border-g-200 hover:border-wa-teal hover:bg-wa-teal/5
-                          transition-all text-left
+                          inline-flex items-center gap-1 py-2 px-3 rounded-lg text-[13px]
+                          border border-[#D1D7DB] bg-white text-wa-teal shadow-sm
+                          hover:bg-gray-50 transition-all cursor-pointer
                         "
                       >
-                        <span className="text-2xl">{info.emoji}</span>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-baseline gap-1.5">
-                            <span className="text-[14px] font-semibold text-g-900">{info.label}</span>
-                            <span className="text-[16px] font-bold font-mono text-wa-teal">
-                              ${info.credit.toLocaleString()}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-g-500 mt-0.5">
-                            Total a pagar: ${total.toLocaleString()}
-                          </p>
-                          <p className="text-[11px] font-semibold text-g-700">
-                            ${weekly.toLocaleString()}/sem x {game.weeksTotal}
-                          </p>
-                        </div>
+                        {info.emoji} {info.label} <span className="font-semibold">${info.credit.toLocaleString()}</span>
+                        <span className="text-g-500 text-[11px]">${weekly.toLocaleString()}/sem</span>
                       </button>
                     );
                   })}
                 </div>
-              </WAMessageIn>
+              </>
             )}
 
             {step === "ready" && isCreator && (
@@ -840,6 +953,72 @@ function WaitingRoom({
 
           <WAToast message={actionToast.message} visible={actionToast.visible} />
           <WAToast message={errorToast.message} visible={errorToast.visible} />
+
+          {/* Rename group modal */}
+          {showRenameModal && (
+            <div
+              className="absolute inset-0 z-50 flex items-center justify-center bg-black/40"
+              onClick={() => setShowRenameModal(false)}
+            >
+              <div
+                className="bg-white rounded-xl p-5 mx-6 max-w-xs w-full shadow-xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h3 className="text-[16px] font-semibold text-g-900 mb-1">Cambiar nombre del grupo</h3>
+                <p className="text-[11px] text-g-500 mb-3">Código: {game.code}</p>
+                <input
+                  type="text"
+                  value={renameInput}
+                  onChange={(e) => setRenameInput(e.target.value)}
+                  maxLength={30}
+                  className="w-full px-3 py-2 border border-g-200 rounded-lg text-[14px] text-g-900 focus:outline-none focus:border-wa-teal mb-3"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && renameInput.trim()) {
+                      safeCall(() => conn.reducers.setGroupName({ groupName: renameInput.trim() }));
+                      setShowRenameModal(false);
+                    }
+                  }}
+                />
+                {/* Emoji picker */}
+                <div className="mb-3 max-h-[120px] overflow-y-auto space-y-0.5">
+                  {EMOJI_ROWS.map((row, i) => (
+                    <div key={i} className="flex justify-around">
+                      {row.map((emoji) => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          onClick={() => setRenameInput((prev) => prev + emoji)}
+                          className="text-xl p-0.5 rounded hover:bg-g-50 active:bg-g-100 transition-colors"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowRenameModal(false)}
+                    className="flex-1 py-2 rounded-lg text-[14px] font-medium text-g-600 border border-[#D1D7DB] hover:bg-gray-50 transition-colors cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (renameInput.trim()) {
+                        safeCall(() => conn.reducers.setGroupName({ groupName: renameInput.trim() }));
+                        setShowRenameModal(false);
+                      }
+                    }}
+                    className="flex-1 py-2 rounded-lg text-[14px] font-medium text-white bg-wa-teal hover:bg-wa-teal/90 transition-colors cursor-pointer"
+                  >
+                    Guardar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </Android>
     </div>

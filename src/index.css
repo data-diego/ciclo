@@ -63,10 +63,35 @@
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
 
-  /* Radius (Grupalia: 8px default) */
+  /* Radius (Grupalia — aligned with Untitled UI) */
   --radius-component: 8px;
-  --radius-card: 16px;
+  --radius-card: 24px;
   --radius-pill: 9999px;
+
+  /* Shadows (Untitled UI) */
+  --shadow-xs: 0px 1px 2px 0px rgba(10, 13, 18, 0.05);
+  --shadow-sm: 0px 1px 3px 0px rgba(10, 13, 18, 0.1), 0px 1px 2px -1px rgba(10, 13, 18, 0.1);
+  --shadow-skeu: 0px 1px 2px 0px rgba(10, 13, 18, 0.05), inset 0px -2px 0px 0px rgba(10, 13, 18, 0.05), inset 0px 0px 0px 1px rgba(10, 13, 18, 0.18);
+}
+
+/* -- Scrollbar: transparent track, grey thumb -- */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(150, 160, 175, 0.45) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(150, 160, 175, 0.45);
+  border-radius: 9999px;
 }
 
 /* -- Base styles -- */

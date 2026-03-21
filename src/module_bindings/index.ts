@@ -43,6 +43,7 @@ import PickBusinessTypeReducer from "./pick_business_type_reducer";
 import PickLoanSizeReducer from "./pick_loan_size_reducer";
 import SendChatMessageReducer from "./send_chat_message_reducer";
 import SendSolidarioReducer from "./send_solidario_reducer";
+import SetGroupNameReducer from "./set_group_name_reducer";
 import SetNameReducer from "./set_name_reducer";
 import SetPronounReducer from "./set_pronoun_reducer";
 import ShareEventReducer from "./share_event_reducer";
@@ -212,6 +213,7 @@ const reducersSchema = __reducers(
   __reducerSchema("pick_loan_size", PickLoanSizeReducer),
   __reducerSchema("send_chat_message", SendChatMessageReducer),
   __reducerSchema("send_solidario", SendSolidarioReducer),
+  __reducerSchema("set_group_name", SetGroupNameReducer),
   __reducerSchema("set_name", SetNameReducer),
   __reducerSchema("set_pronoun", SetPronounReducer),
   __reducerSchema("share_event", ShareEventReducer),

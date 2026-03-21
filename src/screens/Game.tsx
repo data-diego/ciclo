@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef, useCallback, type ReactNode } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import type { BusinessType } from "../game/types";
+import { BUSINESS_INFO, LOAN_INFO } from "../game/types";
 import { useTimeOfDay } from "../game/useTimeOfDay";
 import { usePromoterMessages } from "../game/usePromoterMessages";
 import { Android } from "../components/Android";
@@ -107,13 +108,6 @@ function usePhaseTimer(
   return { secondsLeft, isUrgent: secondsLeft <= 10 };
 }
 
-// --- Chat log types ---
-
-interface ChatEntry {
-  id: string;
-  node: ReactNode;
-}
-
 // --- Main component (app switcher) ---
 
 export function Game({
@@ -122,7 +116,6 @@ export function Game({
   game,
   players,
   payments,
-  weekResults,
   chatMessages,
   customStickers,
   businessEvents,
@@ -148,6 +141,18 @@ export function Game({
     totalPaidThisWeek,
     game.totalMora,
   );
+
+  // Persist promoter messages to DB — only the creator sends them, one at a time
+  const sentPromoterRef = useRef<Set<string>>(new Set());
+  const lastPromoterMsg = promoterMessages.length > 0 ? promoterMessages[promoterMessages.length - 1] : null;
+  useEffect(() => {
+    if (game.phase !== "action" || !isCreator || !lastPromoterMsg) return;
+    const key = `w${game.currentWeek}-${lastPromoterMsg.id}`;
+    if (!sentPromoterRef.current.has(key)) {
+      sentPromoterRef.current.add(key);
+      conn.reducers.sendChatMessage({ content: lastPromoterMsg.text, kind: "promoter" });
+    }
+  }, [lastPromoterMsg?.id, game.phase, game.currentWeek, isCreator]);
 
   // App switching state
   const [activeApp, setActiveApp] = useState<"whatsapp" | "grupalia">("whatsapp");
@@ -255,7 +260,7 @@ export function Game({
     <>
       {portalTarget && createPortal(dock, portalTarget)}
 
-      <div className="flex items-center justify-center flex-1 min-h-0 py-2 md:py-6 overflow-x-auto">
+      <div className="flex items-center justify-center flex-1 min-h-0 pt-1 pb-2 md:pt-3 md:pb-6 overflow-x-auto">
 
       <div className="shrink-0 h-full">
       <Android className="drop-shadow-2xl">
@@ -266,13 +271,13 @@ export function Game({
             game={game}
             players={players}
             payments={payments}
-            weekResults={weekResults}
             chatMessages={chatMessages}
             customStickers={customStickers}
             secondsLeft={secondsLeft}
             isUrgent={isUrgent}
             timeOfDay={timeOfDay}
             promoterMessages={promoterMessages}
+            onBack={() => setActiveApp("grupalia")}
           />
         )}
 
@@ -286,6 +291,7 @@ export function Game({
             businessEvents={businessEvents}
             solidarioTransfers={solidarioTransfers}
             secretObjectives={secretObjectives}
+            chatMessages={chatMessages}
             secondsLeft={secondsLeft}
             timeOfDay={timeOfDay}
             onBack={() => setActiveApp("whatsapp")}
@@ -306,40 +312,36 @@ function WhatsAppChat({
   game,
   players,
   payments,
-  weekResults,
   chatMessages,
   customStickers,
   secondsLeft,
   isUrgent,
   timeOfDay,
   promoterMessages,
+  onBack,
 }: {
   conn: DbConnection;
   identity: Identity;
   game: GameT;
   players: readonly Player[];
   payments: readonly Payment[];
-  weekResults: readonly WeekResult[];
   chatMessages: readonly ChatMessage[];
   customStickers: readonly CustomSticker[];
   secondsLeft: number;
   isUrgent: boolean;
   timeOfDay: ReturnType<typeof useTimeOfDay>;
   promoterMessages: import("../game/usePromoterMessages").PromoterMessage[];
+  onBack: () => void;
 }) {
   const myHex = identity.toHexString();
   const localPlayer = players.find((p) => p.identity.toHexString() === myHex);
 
-
   const weekPayments = payments.filter((p) => p.week === game.currentWeek);
-
-  // Chat log: frozen messages from completed phases
-  const [chatLog, setChatLog] = useState<ChatEntry[]>([]);
-  const prevPhaseRef = useRef<string>("");
 
   // Chat input state
   const [chatInput, setChatInput] = useState("");
   const [showPicker, setShowPicker] = useState(false);
+  const [showGroupInfo, setShowGroupInfo] = useState(false);
   const toast = useToast();
 
   // Scroll management
@@ -366,23 +368,7 @@ function WhatsAppChat({
 
   useEffect(() => {
     scrollToBottom();
-  }, [game.phase, game.currentWeek, chatMessages.length, scrollToBottom]);
-
-  // Freeze phase transition messages into chat log
-  useEffect(() => {
-    const phaseKey = `${game.currentWeek}-${game.phase}`;
-    if (prevPhaseRef.current && prevPhaseRef.current !== phaseKey) {
-      const prev = prevPhaseRef.current;
-      const [weekStr, ...phaseParts] = prev.split("-");
-      const prevWeek = parseInt(weekStr);
-      const prevPhase = phaseParts.join("-");
-      const entries = buildFrozenEntries(prevWeek, prevPhase, game, weekResults);
-      if (entries.length > 0) {
-        setChatLog((log) => [...log, ...entries]);
-      }
-    }
-    prevPhaseRef.current = phaseKey;
-  }, [game.currentWeek, game.phase]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [chatMessages.length, promoterMessages.length, scrollToBottom]);
 
   const handleSendChat = (text: string) => {
     if (!text.trim()) return;
@@ -410,6 +396,9 @@ function WhatsAppChat({
 
   if (!localPlayer) return null;
 
+  // All messages (including promoter) are now in the DB, just sort by sentAt
+  const timeline = [...chatMessages].sort((a, b) => Number(a.sentAt) - Number(b.sentAt));
+
   const bgClass = `flex-1 overflow-y-auto wa-chat-bg ${timeOfDay.bgClass} px-3 py-2 space-y-1.5`;
 
   return (
@@ -420,6 +409,8 @@ function WhatsAppChat({
         avatar={<GrupaliaAvatar />}
         subtitle={`Semana ${game.currentWeek}/${game.weeksTotal} — ${timeOfDay.dayLabel || "..."}`}
         verified
+        onBack={onBack}
+        onNameClick={() => setShowGroupInfo(true)}
       />
       <WAGameStatus
         businessType={localPlayer.businessType as BusinessType | ""}
@@ -435,42 +426,37 @@ function WhatsAppChat({
       />
 
       <div ref={chatBodyRef} className={bgClass}>
-        {/* Frozen chat log from previous phases */}
-        {chatLog.map((entry) => (
-          <div key={entry.id}>{entry.node}</div>
-        ))}
+        {/* All messages from DB, sorted by time */}
+        {timeline.map((msg) => {
+          // Promoter messages
+          if (msg.kind === "promoter") {
+            return (
+              <WAMessageIn key={msg.id.toString()} sender="Promotora" time={formatTime(Number(msg.sentAt))}>
+                {msg.content}
+              </WAMessageIn>
+            );
+          }
 
-        {/* Current week divider */}
-        {!chatLog.some((e) => e.id === `divider-${game.currentWeek}`) && (
-          <WADateDivider
-            text={`Semana ${game.currentWeek} de ${game.weeksTotal}`}
-          />
-        )}
+          // Week dividers
+          if (msg.kind === "divider") {
+            return (
+              <WADateDivider
+                key={msg.id.toString()}
+                text={msg.content.replace(/^---\s*/, "").replace(/\s*---$/, "")}
+              />
+            );
+          }
 
-        {/* Phase system messages */}
-        {game.phase === "action" && (
-          <WASystemMessage>
-            Revisa tu app Grupalia para pagar esta semana
-          </WASystemMessage>
-        )}
-        {game.phase === "results" && (
-          <ResultsBubble game={game} weekResults={weekResults} />
-        )}
-        {game.phase === "rest" && (
-          <WASystemMessage>
-            Domingo de descanso. Tu negocio generó +$1,200
-          </WASystemMessage>
-        )}
+          // System messages (results, rest, action prompts)
+          if (msg.kind === "system") {
+            return (
+              <WASystemMessage key={msg.id.toString()}>
+                {msg.content}
+              </WASystemMessage>
+            );
+          }
 
-        {/* Promotora messages */}
-        {promoterMessages.map((msg) => (
-          <WAMessageIn key={msg.id} sender="Promotora" time={formatTime()}>
-            {msg.text}
-          </WAMessageIn>
-        ))}
-
-        {/* Chat messages */}
-        {chatMessages.map((msg) => {
+          // Regular chat messages + stickers
           const isMe = msg.senderIdentity.toHexString() === myHex;
           const time = formatTime(Number(msg.sentAt));
           if (isMe) {
@@ -523,74 +509,50 @@ function WhatsAppChat({
       </div>
 
       <WAToast message={toast.message} visible={toast.visible} />
+
+      {/* Group info modal */}
+      {showGroupInfo && (
+        <div
+          className="absolute inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={() => setShowGroupInfo(false)}
+        >
+          <div
+            className="bg-white rounded-xl p-5 mx-6 max-w-xs w-full shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-[16px] font-semibold text-g-900 mb-1">{game.groupName}</h3>
+            <p className="text-[11px] text-g-500 mb-3">Código: {game.code} · Semana {game.currentWeek}/{game.weeksTotal}</p>
+            <div className="space-y-2 mb-4">
+              {players.map((p) => {
+                const bt = p.businessType ? BUSINESS_INFO[p.businessType as BusinessType] : null;
+                const ls = p.loanSize ? LOAN_INFO[p.loanSize as keyof typeof LOAN_INFO] : null;
+                const isMe = p.identity.toHexString() === myHex;
+                return (
+                  <div key={p.id.toString()} className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-g-50">
+                    <span className="text-lg">{bt?.emoji || "❓"}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1">
+                        <span className="text-[13px] font-medium text-g-900 truncate">{p.name || "..."}</span>
+                        {isMe && <span className="text-[10px] text-wa-teal font-medium">(tú)</span>}
+                      </div>
+                      <p className="text-[10px] text-g-500">
+                        {bt?.label || "Sin negocio"} · {ls ? `$${ls.credit.toLocaleString()}` : "Sin crédito"}
+                      </p>
+                    </div>
+                    <span className={`w-2 h-2 rounded-full ${p.online ? "bg-green-500" : "bg-g-300"}`} />
+                  </div>
+                );
+              })}
+            </div>
+            <button
+              onClick={() => setShowGroupInfo(false)}
+              className="w-full py-2 rounded-lg text-[14px] font-medium text-wa-teal border border-[#D1D7DB] hover:bg-gray-50 transition-colors cursor-pointer"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
-}
-
-// --- Results bubble (shown in WhatsApp as group result) ---
-
-function ResultsBubble({
-  game,
-  weekResults,
-}: {
-  game: GameT;
-  weekResults: readonly WeekResult[];
-}) {
-  const result = weekResults.find((r) => r.week === game.currentWeek);
-  if (!result) return null;
-
-  if (result.passed) {
-    return (
-      <WASystemMessage>
-        {"\u2705"} El grupo cumplió! ${result.totalPaid.toLocaleString()} / ${result.target.toLocaleString()}
-      </WASystemMessage>
-    );
-  }
-
-  return (
-    <WASystemMessage>
-      {"\u274C"} No se completó. ${result.totalPaid.toLocaleString()} / ${result.target.toLocaleString()}
-      {result.moraAdded > 0 && ` — Mora: +$${result.moraAdded}`}
-    </WASystemMessage>
-  );
-}
-
-// --- Build frozen entries (simplified — WhatsApp only shows system messages) ---
-
-function buildFrozenEntries(
-  week: number,
-  phase: string,
-  game: GameT,
-  weekResults: readonly WeekResult[]
-): ChatEntry[] {
-  const entries: ChatEntry[] = [];
-
-  if (phase === "action") {
-    entries.push({
-      id: `divider-${week}`,
-      node: <WADateDivider text={`Semana ${week} de ${game.weeksTotal}`} />,
-    });
-  }
-
-  if (phase === "results") {
-    const result = weekResults.find((r) => r.week === week);
-    if (result) {
-      const text = result.passed
-        ? `\u2705 Semana ${week}: El grupo cumplió! $${result.totalPaid.toLocaleString()}/$${result.target.toLocaleString()}`
-        : `\u274C Semana ${week}: No se completó. $${result.totalPaid.toLocaleString()}/$${result.target.toLocaleString()}${result.moraAdded > 0 ? ` — Mora: +$${result.moraAdded}` : ""}`;
-      entries.push({
-        id: `results-${week}`,
-        node: <WASystemMessage>{text}</WASystemMessage>,
-      });
-    }
-  }
-
-  if (phase === "rest") {
-    entries.push({
-      id: `rest-${week}`,
-      node: <WASystemMessage>Domingo — Ingreso recibido: +$1,200</WASystemMessage>,
-    });
-  }
-
-  return entries;
 }

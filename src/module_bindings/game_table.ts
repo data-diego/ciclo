@@ -16,6 +16,7 @@ export default __t.row({
   creator: __t.identity(),
   status: __t.string(),
   mode: __t.string(),
+  difficulty: __t.string(),
   weeksTotal: __t.u32().name("weeks_total"),
   currentWeek: __t.u32().name("current_week"),
   phase: __t.string(),

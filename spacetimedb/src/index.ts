@@ -10,6 +10,7 @@ const game = table(
     creator: t.identity(), // identity of the room creator
     status: t.string(), // "lobby" | "playing" | "finished"
     mode: t.string(), // "experiencia" | "medio" | "completo"
+    difficulty: t.string(), // "facil" | "normal" | "dificil"
     weeksTotal: t.u32(), // 4, 8, or 16
     currentWeek: t.u32(), // 1-indexed
     phase: t.string(), // "action" | "results" | "rest"
@@ -91,8 +92,9 @@ const chatMessage = table(
     senderIdentity: t.identity(),
     senderName: t.string(),
     content: t.string(), // text message or sticker ID like "sticker:abrazo"
-    kind: t.string(), // "text" | "sticker"
+    kind: t.string(), // "text" | "sticker" | "system" | "promoter"
     sentAt: t.u64(), // millis from server timestamp
+    week: t.u32(), // game week when message was sent
   }
 );
 
@@ -198,11 +200,20 @@ const LOAN_CREDIT: Record<string, number> = {
   large: 5000,
 };
 
-// Tasa: 75 pesos por cada $1,000 prestados (Grupalia standard range 69-82)
-const TASA_PER_MIL = 75;
+// Tasa por cada $1,000 prestados — varies by difficulty (Grupalia standard range 69-82)
+const TASA_BY_DIFFICULTY: Record<string, number> = {
+  facil: 65,
+  normal: 75,
+  dificil: 85,
+};
 
-function calcWeeklyPayment(credit: number, weeks: number): number {
-  const interest = (credit / 1000) * TASA_PER_MIL;
+function getTasa(difficulty: string): number {
+  return TASA_BY_DIFFICULTY[difficulty] || 75;
+}
+
+function calcWeeklyPayment(credit: number, weeks: number, difficulty: string): number {
+  const tasa = getTasa(difficulty);
+  const interest = (credit / 1000) * tasa;
   return Math.ceil((credit + interest) / weeks);
 }
 
@@ -423,12 +434,19 @@ function evaluateObjectives(ctx: any, gameCode: string) {
 
 // Code + groupName are generated client-side (reducers must be deterministic)
 export const createGame = spacetimedb.reducer(
-  { code: t.string(), groupName: t.string(), mode: t.string() },
-  (ctx, { code, groupName, mode }) => {
+  { code: t.string(), groupName: t.string(), mode: t.string(), difficulty: t.string() },
+  (ctx, { code, groupName, mode, difficulty }) => {
     const weeksTotal = MODES[mode];
     if (!weeksTotal) {
       throw new SenderError(
         "Invalid mode. Use: experiencia, medio, or completo"
+      );
+    }
+
+    const validDifficulties = ["facil", "normal", "dificil"];
+    if (!validDifficulties.includes(difficulty)) {
+      throw new SenderError(
+        "Invalid difficulty. Use: facil, normal, or dificil"
       );
     }
 
@@ -449,6 +467,7 @@ export const createGame = spacetimedb.reducer(
       creator: ctx.sender,
       status: "lobby",
       mode,
+      difficulty,
       weeksTotal,
       currentWeek: 0,
       phase: "lobby",
@@ -514,6 +533,20 @@ export const joinGame = spacetimedb.reducer(
   }
 );
 
+export const setGroupName = spacetimedb.reducer(
+  { groupName: t.string() },
+  (ctx, { groupName }) => {
+    if (!groupName.trim()) throw new SenderError("Group name cannot be empty");
+    const p = ctx.db.player.identity.find(ctx.sender);
+    if (!p) throw new SenderError("Not in a game");
+    const g = ctx.db.game.code.find(p.gameCode);
+    if (!g) throw new SenderError("Game not found");
+    if (g.creator.toHexString() !== ctx.sender.toHexString()) throw new SenderError("Only the creator can rename the group");
+    if (g.status !== "lobby") throw new SenderError("Cannot rename after game started");
+    ctx.db.game.code.update({ ...g, groupName });
+  }
+);
+
 export const setName = spacetimedb.reducer(
   { name: t.string() },
   (ctx, { name }) => {
@@ -566,19 +599,22 @@ export const sendChatMessage = spacetimedb.reducer(
   { content: t.string(), kind: t.string() },
   (ctx, { content, kind }) => {
     if (!content.trim()) throw new SenderError("Message cannot be empty");
-    if (kind !== "text" && kind !== "sticker") throw new SenderError("Invalid kind");
+    if (kind !== "text" && kind !== "sticker" && kind !== "promoter") throw new SenderError("Invalid kind");
 
     const p = ctx.db.player.identity.find(ctx.sender);
     if (!p) throw new SenderError("Not in a game");
+
+    const g = [...ctx.db.game.iter()].find((g: any) => g.code === p.gameCode);
 
     ctx.db.chatMessage.insert({
       id: 0n,
       gameCode: p.gameCode,
       senderIdentity: ctx.sender,
-      senderName: p.name || "???",
+      senderName: kind === "promoter" ? "Promotora" : (p.name || "???"),
       content,
       kind,
       sentAt: ctx.timestamp.microsSinceUnixEpoch / 1000n,
+      week: g ? g.currentWeek : 0,
     });
   }
 );
@@ -620,6 +656,31 @@ export const deleteSticker = spacetimedb.reducer(
 
 // --- Share business event in WhatsApp ---
 
+const SHARE_PARAPHRASES: Record<string, string[]> = {
+  // Neutral
+  dia_normal: ["Hola grupo, esta semana todo tranquilo en mi negocio, sin novedades", "Pues aqui andamos, semana normal en el negocio"],
+  cliente_habitual: ["Esta semana vinieron los mismos clientes de siempre, todo bien", "Semana sin sorpresas, puras caras conocidas"],
+  dia_lento: ["Les cuento que estuvo floja la semana, pero nada grave", "Semana lenta por aca, pero se sale adelante"],
+  // Positive
+  buena_venta: ["Grupo les tengo buenas noticias! Se vendio todo el inventario!", "Que les cuento, se me acabo todo! Buena semana"],
+  clientas_nuevas: ["Oigan me llegaron 3 clientas nuevas al salon! Estoy contenta", "Buenas noticias grupo, el salon esta creciendo, llegaron clientas nuevas"],
+  pedido_grande: ["Les cuento que me hicieron un pedido grande para una fiesta! Buena semana", "Grupo que creen, me encargaron tacos para una fiesta grande!"],
+  catalogo_exito: ["Se vendio todo el catalogo este mes! Ando feliz", "Grupo ando contenta, se me acabo el catalogo de este mes"],
+  vestido_novia: ["Me encargaron un vestido de novia! Va a ser buen mes", "Les cuento que una clienta me pidio un vestido de novia!"],
+  pan_vendido: ["El pan se acabo antes del mediodia! Muy buena semana", "Que les digo, todo el pan se vendio rapidisimo esta semana"],
+  dia_nino: ["Con el dia del nino nos fue super bien de ventas!", "Grupo el dia del nino nos trajo muchos clientes!"],
+  buen_fin: ["Este fin de semana estuvo bueno, vinieron mas clientes", "Buen fin de semana grupo, mas clientes de lo normal"],
+  // Negative
+  platanos: ["Ay grupo, se me echaron a perder los platanos esta semana", "Malas noticias, perdi mercancia, se echaron a perder los platanos"],
+  secadora: ["Se me descompuso la secadora, tuve que pagar reparacion", "Grupo me salio un gasto, se descompuso la secadora del salon"],
+  lluvia: ["No pude abrir el puesto por la lluvia, semana dificil", "Esta semana estuvo complicado, la lluvia no me dejo trabajar"],
+  devolucion: ["Me devolvieron un pedido grande, mala semana", "Grupo una clienta me devolvio un pedido, me afecto esta semana"],
+  tela_cara: ["Subio el precio de la tela, se me fue mas en material", "El material subio de precio grupo, esta semana me salio mas caro"],
+  harina: ["Subio la harina grupo, se me fue mas en ingredientes", "Malas noticias, la harina subio de precio esta semana"],
+  pocos_clientes: ["Estuvo lloviendo y casi no vinieron clientes", "Semana dificil grupo, con la lluvia no llego casi nadie"],
+  robo_menor: ["Me robaron mercancia del negocio, estoy preocupada", "Grupo paso algo feo, se metieron al negocio y se llevaron cosas"],
+};
+
 export const shareEvent = spacetimedb.reducer(
   { week: t.u32() },
   (ctx, { week }) => {
@@ -634,15 +695,39 @@ export const shareEvent = spacetimedb.reducer(
     );
     if (!event) throw new SenderError("No event found for this week");
 
+    // Pick a natural first-person paraphrase
+    const phrases = SHARE_PARAPHRASES[event.eventKey];
+    let content: string;
+    if (phrases && phrases.length > 0) {
+      const hash = deterministicHash(ctx.timestamp.microsSinceUnixEpoch, ctx.sender.toHexString(), week);
+      content = phrases[hash % phrases.length];
+    } else {
+      content = event.message;
+    }
+
+    // Only allow sharing once per week
+    const alreadyShared = [...ctx.db.chatMessage.iter()].some(
+      (m) => m.gameCode === p.gameCode &&
+        m.senderIdentity.toHexString() === ctx.sender.toHexString() &&
+        m.kind === "event" &&
+        m.week === week
+    );
+    if (alreadyShared) throw new SenderError("Ya compartiste tu evento esta semana");
+
+    // Only allow sharing in current week
+    const g = [...ctx.db.game.iter()].find((g: any) => g.code === p.gameCode);
+    if (g && week !== g.currentWeek) throw new SenderError("Solo puedes compartir eventos de la semana actual");
+
     // Post as a chat message
     ctx.db.chatMessage.insert({
       id: 0n,
       gameCode: p.gameCode,
       senderIdentity: ctx.sender,
       senderName: p.name || "???",
-      content: event.message,
-      kind: "text",
+      content,
+      kind: "event",
       sentAt: ctx.timestamp.microsSinceUnixEpoch / 1000n,
+      week: g ? g.currentWeek : 0,
     });
   }
 );
@@ -727,7 +812,7 @@ export const startGame = spacetimedb.reducer({}, (ctx) => {
     const bt = players[i].businessType || businessDefaults[i % 6];
     const ls = players[i].loanSize || "medium";
     const credit = LOAN_CREDIT[ls] || 3500;
-    const wp = calcWeeklyPayment(credit, g.weeksTotal);
+    const wp = calcWeeklyPayment(credit, g.weeksTotal, g.difficulty);
     totalTarget += wp;
 
     ctx.db.player.id.update({
@@ -772,6 +857,28 @@ export const startGame = spacetimedb.reducer({}, (ctx) => {
     gameCode: p.gameCode,
     kind: "game_started",
     message: `El ciclo comienza! ${players.length} jugadores. Semana 1 de ${g.weeksTotal}.`,
+  });
+
+  // Inject week 1 divider + action prompt as system chat messages
+  ctx.db.chatMessage.insert({
+    id: 0n,
+    gameCode: p.gameCode,
+    senderIdentity: g.creator,
+    senderName: "Grupalia",
+    content: `--- Semana 1 de ${g.weeksTotal} ---`,
+    kind: "divider",
+    sentAt: now,
+    week: 1,
+  });
+  ctx.db.chatMessage.insert({
+    id: 0n,
+    gameCode: p.gameCode,
+    senderIdentity: g.creator,
+    senderName: "Grupalia",
+    content: "Revisa tu app Grupalia para pagar esta semana",
+    kind: "system",
+    sentAt: now + 1n,
+    week: 1,
   });
 });
 
@@ -900,6 +1007,22 @@ export const advancePhase = spacetimedb.reducer({}, (ctx) => {
       kind: "week_results",
       message: status,
     });
+
+    // Inject results as system chat message
+    const resultEmoji = passed ? "\u2705" : "\u274C";
+    const resultText = passed
+      ? `${resultEmoji} Semana ${g.currentWeek}: El grupo cumplio! $${totalPaid.toLocaleString()}/$${g.targetPayment.toLocaleString()}`
+      : `${resultEmoji} Semana ${g.currentWeek}: No se completo. $${totalPaid.toLocaleString()}/$${g.targetPayment.toLocaleString()}${moraAdded > 0 ? ` — Mora: +$${moraAdded}` : ""}`;
+    ctx.db.chatMessage.insert({
+      id: 0n,
+      gameCode: p.gameCode,
+      senderIdentity: g.creator,
+      senderName: "Grupalia",
+      content: resultText,
+      kind: "system",
+      sentAt: now,
+      week: g.currentWeek,
+    });
   } else if (g.phase === "results") {
     if (g.currentWeek >= g.weeksTotal) {
       // Game finished — evaluate objectives before finalizing
@@ -942,6 +1065,18 @@ export const advancePhase = spacetimedb.reducer({}, (ctx) => {
         kind: "phase_changed",
         message: `Domingo de descanso. Semana ${g.currentWeek + 1} empieza pronto.`,
       });
+
+      // Inject rest phase as system chat message
+      ctx.db.chatMessage.insert({
+        id: 0n,
+        gameCode: p.gameCode,
+        senderIdentity: g.creator,
+        senderName: "Grupalia",
+        content: `Domingo — Ingreso recibido: +$${BASE_INCOME}`,
+        kind: "system",
+        sentAt: now,
+        week: g.currentWeek,
+      });
     }
   } else if (g.phase === "rest") {
     // Start next week — give ALL players income (symmetric)
@@ -972,6 +1107,28 @@ export const advancePhase = spacetimedb.reducer({}, (ctx) => {
       gameCode: p.gameCode,
       kind: "week_started",
       message: `Semana ${nextWeek} comienza! Ingreso recibido: $${BASE_INCOME}`,
+    });
+
+    // Inject week divider + action prompt as system chat messages
+    ctx.db.chatMessage.insert({
+      id: 0n,
+      gameCode: p.gameCode,
+      senderIdentity: g.creator,
+      senderName: "Grupalia",
+      content: `--- Semana ${nextWeek} de ${g.weeksTotal} ---`,
+      kind: "divider",
+      sentAt: now,
+      week: nextWeek,
+    });
+    ctx.db.chatMessage.insert({
+      id: 0n,
+      gameCode: p.gameCode,
+      senderIdentity: g.creator,
+      senderName: "Grupalia",
+      content: "Revisa tu app Grupalia para pagar esta semana",
+      kind: "system",
+      sentAt: now + 1n,
+      week: nextWeek,
     });
   }
 });

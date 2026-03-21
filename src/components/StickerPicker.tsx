@@ -42,7 +42,7 @@ const REACTION_STICKERS: Sticker[] = [
 export const ALL_BUILTIN_STICKERS = [...GRUPALIA_STICKERS, ...REACTION_STICKERS];
 
 // Quick emoji grid for inline insertion
-const EMOJI_ROWS = [
+export const EMOJI_ROWS = [
   ["😀", "😂", "🥰", "😎", "🤩", "😇", "🤗", "🫣"],
   ["💪", "🔥", "💰", "🎉", "❤️", "⭐", "👑", "🙏"],
   ["👍", "👎", "👏", "👀", "🤔", "😱", "😢", "😤"],

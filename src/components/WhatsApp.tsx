@@ -34,6 +34,8 @@ interface WAHeaderProps {
   avatar?: ReactNode;
   subtitle?: string;
   verified?: boolean;
+  onBack?: () => void;
+  onNameClick?: () => void;
 }
 
 export function WAHeader({
@@ -41,20 +43,24 @@ export function WAHeader({
   avatar,
   subtitle,
   verified,
+  onBack,
+  onNameClick,
 }: WAHeaderProps) {
   return (
     <div className="flex items-center gap-3 bg-wa-teal-dark text-white px-3 py-2">
       {/* Back arrow */}
-      <svg
-        width="20"
-        height="20"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-      >
-        <path d="M15 18l-6-6 6-6" />
-      </svg>
+      <button onClick={onBack} className="hover:opacity-80 transition-opacity">
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <path d="M15 18l-6-6 6-6" />
+        </svg>
+      </button>
 
       {/* Avatar */}
       <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center overflow-hidden shrink-0">
@@ -72,7 +78,7 @@ export function WAHeader({
       </div>
 
       {/* Name & subtitle */}
-      <div className="flex-1 min-w-0">
+      <div className={`flex-1 min-w-0 ${onNameClick ? "cursor-pointer" : ""}`} onClick={onNameClick}>
         <div className="flex items-center gap-1">
           <span className="font-semibold text-[15px] truncate">{name}</span>
           {verified && (
@@ -136,6 +142,28 @@ export function WADateDivider({ text }: { text: string }) {
   );
 }
 
+// WhatsApp-style sender name colors (deterministic by name)
+const SENDER_COLORS = [
+  "#1F7A54", // teal-green
+  "#6B45BC", // purple
+  "#C4451C", // red-orange
+  "#0E7490", // cyan
+  "#B45309", // amber
+  "#7C3AED", // violet
+  "#0369A1", // sky blue
+  "#BE185D", // pink
+  "#15803D", // green
+  "#9333EA", // purple bright
+];
+
+function getSenderColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash * 31 + name.charCodeAt(i)) % SENDER_COLORS.length;
+  }
+  return SENDER_COLORS[Math.abs(hash) % SENDER_COLORS.length];
+}
+
 // --- Incoming message (from business / other person) ---
 interface WAMessageInProps {
   children: ReactNode;
@@ -166,7 +194,7 @@ export function WAMessageIn({
             }}
           />
           {sender && (
-            <p className="text-[12px] font-semibold text-wa-teal mb-0.5">
+            <p className="text-[12px] font-semibold mb-0.5" style={{ color: getSenderColor(sender) }}>
               {sender}
             </p>
           )}
@@ -190,11 +218,11 @@ export function WAMessageIn({
                   px-3 py-2.5 text-[14px] font-medium text-wa-teal
                   flex items-center justify-center gap-2
                   hover:bg-gray-50 active:bg-gray-100
-                  transition-colors
+                  transition-colors cursor-pointer
                 "
               >
-                {btn.icon}
                 {btn.label}
+                {btn.icon}
               </button>
             ))}
           </div>
@@ -282,7 +310,7 @@ export function WALinkPreview({
       className="
         w-full text-left rounded-md overflow-hidden mb-1
         border-l-4 bg-g-50 hover:bg-g-100
-        transition-colors
+        transition-colors cursor-pointer
       "
       style={{ borderLeftColor: color }}
     >
