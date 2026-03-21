@@ -504,11 +504,12 @@ export function GrupaliaApp({
           </Card>
         )}
 
-        {/* PLATICA/DECISION: Events with choice UI + share button */}
-        {game.subPhase === "decision" && myCurrentEvents.map((ev) => {
+        {/* Current week events with choice UI + share button */}
+        {myCurrentEvents.map((ev) => {
           const alreadyShared = chatMessages.some(
             (m) => m.kind === "event" && m.senderIdentity.toHexString() === myHex && m.week === ev.week
           );
+          const canShare = game.subPhase === "decision" && !alreadyShared;
           return (
             <Card
               key={ev.id.toString()}
@@ -587,16 +588,16 @@ export function GrupaliaApp({
                   </p>
                 )}
 
-                {/* Share button */}
+                {/* Share button — only enabled during decision phase of current week */}
                 <button
                   onClick={() => {
-                    if (alreadyShared) return;
+                    if (!canShare) return;
                     try { conn.reducers.shareEvent({ week: ev.week }); } catch { /* ignore */ }
                     showFeedback("Evento compartido en WhatsApp");
                   }}
-                  disabled={alreadyShared}
+                  disabled={!canShare}
                   className={`mt-3 w-full text-[12px] font-semibold px-3 py-2 border rounded-lg transition-colors ${
-                    alreadyShared
+                    !canShare
                       ? "text-g-400 border-g-100 bg-g-50 cursor-not-allowed"
                       : "text-g-700 border-g-200 bg-white shadow-[var(--shadow-xs)] hover:bg-g-50 cursor-pointer"
                   }`}
