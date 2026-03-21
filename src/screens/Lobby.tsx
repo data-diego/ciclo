@@ -1487,6 +1487,10 @@ function WaitingRoom({
                             <span className="text-[11px] font-medium text-green-700">Evento positivo</span>
                             <span className="ml-auto text-[13px] font-semibold text-green-700">+{bi.positivePct}% de tu ingreso</span>
                           </div>
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-g-50 border border-g-200">
+                            <span className="text-[11px] font-medium text-g-600">Evento neutro</span>
+                            <span className="ml-auto text-[13px] font-semibold text-g-600">Sin efecto</span>
+                          </div>
                           <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-100">
                             <span className="text-[11px] font-medium text-red-700">Evento negativo</span>
                             <span className="ml-auto text-[13px] font-semibold text-red-700">{bi.negativePct}% de tu ingreso</span>

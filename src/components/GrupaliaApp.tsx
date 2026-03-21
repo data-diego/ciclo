@@ -103,6 +103,7 @@ export function GrupaliaApp({
   const [pedirAmount, setPedirAmount] = useState(SOLIDARIO_DEFAULT);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
   const [showMenu, setShowMenu] = useState(false);
+  const [showBusinessInfo, setShowBusinessInfo] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const myHex = localPlayer.identity.toHexString();
   const { dark, toggle: toggleDark } = useDarkMode();
@@ -166,7 +167,7 @@ export function GrupaliaApp({
     } catch { /* ignore */ }
     const amount = choice === "full" ? wp : choice === "partial" ? Math.floor(wp * 0.5) : 0;
     const label = choice === "full" ? "Pago completo" : choice === "partial" ? "Pago parcial" : "Sin pago";
-    showFeedback(`\u2705 ${label}: $${amount}`);
+    showFeedback(`${label}: $${amount}`);
   };
 
   const handleRespondEvent = (eventId: bigint, accepted: boolean) => {
@@ -181,7 +182,7 @@ export function GrupaliaApp({
       conn.reducers.sendSolidario({ receiverIdentityHex: receiverHex, amount: solidarioAmount });
     } catch { /* ignore */ }
     const receiver = players.find((p) => p.identity.toHexString() === receiverHex);
-    showFeedback(`\u{1F49C} Enviaste $${solidarioAmount} a ${receiver?.name || "???"}`);
+    showFeedback(`Enviaste $${solidarioAmount} a ${receiver?.name || "???"}`);
     setShowSolidarioPicker(false);
     setSolidarioAmount(SOLIDARIO_DEFAULT);
   };
@@ -292,7 +293,7 @@ export function GrupaliaApp({
         {/* Stats card */}
         <Card>
           <SectionHeader
-            title={`${g(localPlayer.pronoun, "Bienvenido", "Bienvenida", "Bienvenide")}, ${localPlayer.name} ${info?.emoji || ""}`}
+            title={`${g(localPlayer.pronoun, "Bienvenido", "Bienvenida", "Bienvenide")}, ${localPlayer.name}`}
             subtitle="Tu resumen del ciclo"
           />
           <div className="px-4 pb-2">
@@ -305,7 +306,7 @@ export function GrupaliaApp({
           <Divider />
           <div className="px-4 py-3">
             <div className="flex items-center gap-2 text-[13px]">
-              <span className="text-brand-600 font-medium">{lsInfo?.emoji} Crédito: ${credit.toLocaleString()}</span>
+              <span className="text-brand-600 font-medium">Crédito: ${credit.toLocaleString()}</span>
               <span className="text-g-400">·</span>
               <span className="text-g-500">Pago: ${wp}/sem</span>
               <span className="text-g-400">·</span>
@@ -325,10 +326,91 @@ export function GrupaliaApp({
           </div>
         </Card>
 
+        {/* Business card */}
+        {info && (
+          <>
+            <Card>
+              <button
+                onClick={() => setShowBusinessInfo(true)}
+                className="w-full px-4 py-3 flex items-center gap-3 text-left cursor-pointer hover:bg-g-25 transition-colors"
+              >
+                <span className="text-2xl shrink-0">{info.emoji}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[14px] font-semibold text-g-900">{info.label}</p>
+                  <p className="text-[12px] text-g-500 leading-snug">{info.desc}</p>
+                </div>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-g-400 shrink-0">
+                  <path d="M9 18l6-6-6-6" />
+                </svg>
+              </button>
+            </Card>
+
+            {showBusinessInfo && (
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+                onClick={() => setShowBusinessInfo(false)}
+              >
+                <div
+                  className="bg-white rounded-[var(--radius-card)] p-4 mx-6 max-w-xs w-full shadow-xl"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="text-center mb-3">
+                    <span className="text-3xl">{info.emoji}</span>
+                    <h3 className="text-[16px] font-semibold text-g-900 mt-1">{info.label}</h3>
+                    <span className={`inline-flex items-center gap-1 mt-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${
+                      info.difficulty === "Favorable" ? "bg-green-50 text-green-700 border-green-200" :
+                      info.difficulty === "Equilibrado" ? "bg-blue-50 text-blue-700 border-blue-200" :
+                      info.difficulty === "Riesgoso" ? "bg-amber-50 text-amber-700 border-amber-200" :
+                      "bg-red-50 text-red-700 border-red-200"
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${
+                        info.difficulty === "Favorable" ? "bg-green-500" :
+                        info.difficulty === "Equilibrado" ? "bg-blue-500" :
+                        info.difficulty === "Riesgoso" ? "bg-amber-500" :
+                        "bg-red-500"
+                      }`} />
+                      {info.difficulty}
+                    </span>
+                  </div>
+                  <p className="text-[13px] text-g-600 text-center mb-4">{info.desc}</p>
+                  <div className="space-y-2 mb-4">
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-50 border border-green-100">
+                      <span className="text-[11px] font-medium text-green-700">Evento positivo</span>
+                      <span className="ml-auto text-[13px] font-semibold text-green-700">+{info.positivePct}% de tu ingreso</span>
+                    </div>
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-g-50 border border-g-200">
+                      <span className="text-[11px] font-medium text-g-600">Evento neutro</span>
+                      <span className="ml-auto text-[13px] font-semibold text-g-600">Sin efecto</span>
+                    </div>
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-100">
+                      <span className="text-[11px] font-medium text-red-700">Evento negativo</span>
+                      <span className="ml-auto text-[13px] font-semibold text-red-700">{info.negativePct}% de tu ingreso</span>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-g-400 text-center">Cada semana puede pasar un evento aleatorio en tu negocio</p>
+                  <div className="flex justify-end mt-5">
+                    <button
+                      onClick={() => setShowBusinessInfo(false)}
+                      className="text-[13px] font-medium text-brand-600 cursor-pointer hover:opacity-80 transition-opacity py-0 px-1"
+                    >
+                      Cerrar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
         {/* Live ranking */}
         <Card>
           <div className="px-4 pt-3 pb-1">
-            <p className="text-[13px] font-semibold text-g-900">{"\u{1F3C6}"} Ranking</p>
+            <div className="flex items-center gap-1.5">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-brand-500">
+                <path d="M6 9H4.5a2.5 2.5 0 010-5H6" /><path d="M18 9h1.5a2.5 2.5 0 000-5H18" /><path d="M4 22h16" /><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" /><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" /><path d="M18 2H6v7a6 6 0 1012 0V2z" />
+              </svg>
+              <p className="text-[13px] font-semibold text-g-900">Ranking</p>
+            </div>
           </div>
           <div className="px-3 pb-3 space-y-1">
             {[...players].sort((a, b) => b.score - a.score).map((p, i) => {
@@ -344,7 +426,7 @@ export function GrupaliaApp({
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-[10px] font-bold text-g-400 w-3 text-right font-mono">{i + 1}</span>
-                    <span>{pinfo?.emoji || "\u2753"}</span>
+                    <span>{pinfo?.emoji || "?"}</span>
                     <span className={`font-medium truncate ${isMe ? "text-brand-700" : "text-g-900"}`}>
                       {p.name || "..."}
                     </span>
@@ -362,7 +444,9 @@ export function GrupaliaApp({
             <div className="px-4 py-4">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center shrink-0">
-                  <span className="text-[14px]">{"\u{1F3AF}"}</span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-brand-600">
+                    <circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" />
+                  </svg>
                 </div>
                 <p className="text-[15px] font-semibold text-g-900">Objetivo secreto</p>
               </div>
@@ -400,10 +484,25 @@ export function GrupaliaApp({
                     ev.isChoice && !ev.choiceMade ? "bg-brand-100" :
                     ev.moneyDelta > 0 ? "bg-ok-100" : ev.moneyDelta < 0 ? "bg-err-100" : "bg-g-100"
                   }`}>
-                    <span className="text-[14px]">
-                      {ev.isChoice && !ev.choiceMade ? "\u2753" :
-                       ev.moneyDelta > 0 ? "\u{1F4C8}" : ev.moneyDelta < 0 ? "\u{1F4C9}" : "\u{1F4CB}"}
-                    </span>
+                    {ev.isChoice && !ev.choiceMade ? (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-brand-600">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+                        <rect x="11" y="7" width="2" height="6" rx="1" fill="currentColor" />
+                        <rect x="11" y="15" width="2" height="2" rx="1" fill="currentColor" />
+                      </svg>
+                    ) : ev.moneyDelta > 0 ? (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-ok-600">
+                        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" />
+                      </svg>
+                    ) : ev.moneyDelta < 0 ? (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-err-600">
+                        <polyline points="23 18 13.5 8.5 8.5 13.5 1 6" /><polyline points="17 18 23 18 23 12" />
+                      </svg>
+                    ) : (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-g-500">
+                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" />
+                      </svg>
+                    )}
                   </div>
                   <p className="text-[15px] font-semibold text-g-900">
                     {ev.isChoice && !ev.choiceMade ? "Decisión necesaria" : "Evento de esta semana"}
@@ -548,7 +647,10 @@ export function GrupaliaApp({
         {game.subPhase === "decision" && hasLocalPaid && !isDecisionDone && (
           <Card className="bg-ok-50 border-ok-100">
             <div className="px-4 py-4 text-center">
-              <p className="text-[14px] font-semibold text-ok-700">{"\u2705"} Pago registrado</p>
+              <p className="text-[14px] font-semibold text-ok-700 flex items-center justify-center gap-1.5">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                Pago registrado
+              </p>
               <p className="text-[12px] text-g-500 mt-1">Revisa tus eventos pendientes</p>
             </div>
           </Card>
@@ -584,7 +686,7 @@ export function GrupaliaApp({
               <button
                 onClick={() => {
                   try { conn.reducers.requestSolidario({ amount: pedirAmount }); } catch { /* ignore */ }
-                  showFeedback(`🙏 Solicitud de $${pedirAmount} enviada al grupo`);
+                  showFeedback(`Solicitud de $${pedirAmount} enviada al grupo`);
                   setShowPedirSolidario(false);
                   setPedirAmount(SOLIDARIO_DEFAULT);
                 }}
@@ -695,9 +797,19 @@ export function GrupaliaApp({
           return (
             <Card className={passed ? "bg-ok-50 border-ok-100" : "bg-err-50 border-err-100"}>
               <div className="px-4 py-4 text-center">
-                <p className="text-3xl mb-2">{passed ? "\u2705" : "\u274C"}</p>
+                <div className="mb-2 flex justify-center">
+                  {passed ? (
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-ok-600">
+                      <path d="M22 11.08V12a10 10 0 11-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+                    </svg>
+                  ) : (
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-err-600">
+                      <circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" />
+                    </svg>
+                  )}
+                </div>
                 <p className="text-[15px] font-semibold text-g-900">
-                  {passed ? "El grupo cumplió!" : "No se completó el pago"}
+                  {passed ? "Se completó el pago" : "No se completó el pago"}
                 </p>
                 <p className="text-[13px] text-g-600 mt-1">
                   ${total.toLocaleString()} / ${game.targetPayment.toLocaleString()}
