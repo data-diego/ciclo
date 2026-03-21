@@ -1297,13 +1297,23 @@ export const sendChatMessage = spacetimedb.reducer(
     if (!p) throw new SenderError("Not in a game");
     const g = [...ctx.db.game.iter()].find((g: any) => g.code === p.gameCode);
 
+    const week = g ? g.currentWeek : 0;
+
+    // Server-side dedup for presidenta — skip if same content+week already exists
+    if (kind === "presidenta") {
+      const exists = [...ctx.db.chatMessage.iter()].some(
+        (m: any) => m.gameCode === p.gameCode && m.kind === "presidenta" && m.content === content && m.week === week
+      );
+      if (exists) return;
+    }
+
     ctx.db.chatMessage.insert({
       id: 0n, gameCode: p.gameCode,
       senderIdentity: ctx.sender,
       senderName: kind === "presidenta" ? "Presidenta" : (p.name || "???"),
       content, kind,
       sentAt: ctx.timestamp.microsSinceUnixEpoch / 1000n,
-      week: g ? g.currentWeek : 0,
+      week,
     });
   }
 );
