@@ -195,10 +195,8 @@ export function Game({
     if (activeApp === "whatsapp") setSeenMsgCount(chatOnly.length);
   }, [activeApp, chatOnly.length]);
 
-  // Grupalia notification badge (phase changes + payments + solidario)
+  // Grupalia notification buzz (phase changes + payments + solidario)
   const currentPhaseKey = `${game.currentWeek}-${game.subPhase}`;
-  const grupaliaGameChanges = payments.length !== seenPaymentCount || solidarioTransfers.length !== seenSolidarioCount;
-  const grupaliaUnseen = activeApp === "grupalia" ? false : (currentPhaseKey !== seenPhaseKey || grupaliaGameChanges);
 
   useEffect(() => {
     const phaseKey = `${game.currentWeek}-${game.subPhase}`;
@@ -244,7 +242,7 @@ export function Game({
     {
       id: "grupalia",
       icon: <img src="/grupalia_white.svg" alt="Grupalia" className="w-3 h-3" />,
-      badge: grupaliaUnseen ? true : undefined,
+      badge: undefined,
       buzzing: buzzApp === "grupalia",
       onClick: () => setActiveApp("grupalia"),
     },
