@@ -256,9 +256,9 @@ export function Game({
   };
 
   return (
-      <div className="flex flex-col items-center flex-1 min-h-0 px-2 pt-1 pb-2 md:px-6 md:pt-3 md:pb-6 overflow-x-auto">
+      <div className="flex flex-col items-center flex-1 min-h-0 px-2 pt-1 pb-2 md:px-6 md:pt-3 md:pb-6 overflow-hidden">
 
-      <div className="shrink-0 flex-1 min-h-0">
+      <div className="flex-1 min-h-0 max-w-full">
       <Android className="drop-shadow-2xl h-full">
         {activeApp === "whatsapp" && (
           <WhatsAppChat
