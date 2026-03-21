@@ -14,6 +14,7 @@ import {
   WAInputBar,
   WAToast,
   CicloInfoModal,
+  RulesModal,
 } from "../components/WhatsApp";
 import { StickerPicker, StickerBubble, EMOJI_ROWS } from "../components/StickerPicker";
 import { GrupaliaApp } from "../components/GrupaliaApp";
@@ -332,6 +333,7 @@ function WhatsAppChat({
   const [showPicker, setShowPicker] = useState(false);
   const [showGroupInfo, setShowGroupInfo] = useState(false);
   const [showCicloInfo, setShowCicloInfo] = useState(false);
+  const [showRules, setShowRules] = useState(false);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [renameInput, setRenameInput] = useState("");
@@ -683,6 +685,13 @@ function WhatsAppChat({
               <span>Abrir Grupalia</span>
             </button>
             <button
+              onClick={() => { setShowMenu(false); setShowRules(true); }}
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[14px] text-g-800 hover:bg-g-100 cursor-pointer"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+              <span>Reglas e incentivos</span>
+            </button>
+            <button
               onClick={() => { setShowMenu(false); toggleDark(); }}
               className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[14px] text-g-800 hover:bg-g-100 cursor-pointer"
             >
@@ -718,6 +727,7 @@ function WhatsAppChat({
       )}
 
       {showCicloInfo && <CicloInfoModal onClose={() => setShowCicloInfo(false)} />}
+      {showRules && <RulesModal onClose={() => setShowRules(false)} />}
 
       {showPhoneModal && (
         <div

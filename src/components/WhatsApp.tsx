@@ -575,6 +575,136 @@ export function WAToast({ message, visible }: WAToastProps) {
   );
 }
 
+// --- Rules & Incentives Modal ---
+export function RulesModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div
+      className="absolute inset-0 z-50 flex items-center justify-center bg-black/40"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-xl p-4 mx-6 max-w-sm w-full shadow-xl max-h-[80%] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-[16px] font-bold text-g-900 mb-3">Reglas e Incentivos</h3>
+
+        <section className="mb-3">
+          <h4 className="text-[13px] font-semibold text-g-800 mb-1 flex items-center gap-1.5">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-brand-600 shrink-0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            Cómo funciona
+          </h4>
+          <ul className="text-[12px] text-g-700 leading-relaxed space-y-1 list-disc pl-4">
+            <li>Cada semana decides cuánto pagar: completo, parcial o nada</li>
+            <li>Los pagos son privados, nadie ve lo que pagaste</li>
+            <li>Tu negocio genera eventos que afectan tu saldo</li>
+            <li>Puedes enviar solidario ($50 a $500, en múltiplos de $50) a quien lo necesite</li>
+          </ul>
+        </section>
+
+        <section className="mb-3">
+          <h4 className="text-[13px] font-semibold text-g-800 mb-1 flex items-center gap-1.5">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-brand-600 shrink-0"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            Puntuación
+          </h4>
+          <ul className="text-[12px] text-g-700 leading-relaxed space-y-1 list-none pl-0">
+            <li className="flex items-center gap-1.5">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-ok-600 shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
+              <span><span className="font-medium">Pago completo:</span> +100 pts</span>
+            </li>
+            <li className="flex items-center gap-1.5">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-warn-600 shrink-0"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <span><span className="font-medium">Pago parcial:</span> +20 pts</span>
+            </li>
+            <li className="flex items-center gap-1.5">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-err-600 shrink-0"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              <span><span className="font-medium">No pagar:</span> −40 pts</span>
+            </li>
+            <li className="flex items-center gap-1.5">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-brand-600 shrink-0"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+              <span><span className="font-medium">Enviar solidario:</span> +30 pts</span>
+            </li>
+            <li className="flex items-center gap-1.5">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-brand-600 shrink-0"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+              <span><span className="font-medium">Inversión (evento):</span> +25 pts</span>
+            </li>
+            <li className="flex items-center gap-1.5">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-brand-600 shrink-0"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              <span><span className="font-medium">Familia (evento):</span> +20 pts</span>
+            </li>
+            <li className="flex items-center gap-1.5">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-ok-600 shrink-0"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <span><span className="font-medium">Grupo paga completo:</span> +60 pts para todos</span>
+            </li>
+            <li className="flex items-center gap-1.5">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-err-600 shrink-0"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <span><span className="font-medium">Alguien no paga:</span> −20 pts para todos</span>
+            </li>
+          </ul>
+        </section>
+
+        <section className="mb-3">
+          <h4 className="text-[13px] font-semibold text-g-800 mb-1 flex items-center gap-1.5">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-err-600 shrink-0"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            Mora
+          </h4>
+          <p className="text-[12px] text-g-700 leading-relaxed">
+            Si no pagas, se acumula mora: $60 la primera semana, y $30 más por cada semana consecutiva sin pagar ($60, $90, $120…).
+          </p>
+        </section>
+
+        <section className="mb-3">
+          <h4 className="text-[13px] font-semibold text-g-800 mb-1 flex items-center gap-1.5">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-brand-600 shrink-0"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            Solidario
+          </h4>
+          <p className="text-[12px] text-g-700 leading-relaxed">
+            Puedes enviar entre $50 y $500 (en incrementos de $50) a cualquier compañera. Es privado, solo ustedes dos lo saben. También puedes pedir solidario.
+          </p>
+        </section>
+
+        <section className="mb-3">
+          <h4 className="text-[13px] font-semibold text-g-800 mb-1 flex items-center gap-1.5">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-brand-600 shrink-0"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+            Créditos
+          </h4>
+          <p className="text-[12px] text-g-700 leading-relaxed">
+            Tamaños: Pequeño ($2,000), Mediano ($3,500) o Grande ($5,000). La tasa varía según la dificultad: $65, $75 u $85 pesos por cada mil prestados.
+          </p>
+        </section>
+
+        <section className="mb-3">
+          <h4 className="text-[13px] font-semibold text-g-800 mb-1 flex items-center gap-1.5">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-brand-600 shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            Objetivo secreto
+          </h4>
+          <p className="text-[12px] text-g-700 leading-relaxed">
+            Al inicio se te asigna un objetivo secreto con bonus de +300 a +500 pts. Se revela en los resultados al final del juego.
+          </p>
+        </section>
+
+        <section className="mb-3">
+          <h4 className="text-[13px] font-semibold text-g-800 mb-1 flex items-center gap-1.5">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-brand-600 shrink-0"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 1.1 2.7 3 6 3s6-1.9 6-3v-5"/></svg>
+            Graduación
+          </h4>
+          <p className="text-[12px] text-g-700 leading-relaxed">
+            Te gradúas si terminas de pagar tu crédito completo. Igual que en la vida real, completar tu ciclo es el verdadero logro.
+          </p>
+        </section>
+
+        <div className="flex justify-end mt-4">
+          <button
+            onClick={onClose}
+            className="text-[13px] font-medium text-wa-teal cursor-pointer hover:opacity-80 transition-opacity py-0 px-1"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // --- Ciclo Info Modal ---
 export function CicloInfoModal({ onClose }: { onClose: () => void }) {
   return (
