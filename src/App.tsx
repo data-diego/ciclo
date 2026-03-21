@@ -4,7 +4,7 @@ import { useTable } from "spacetimedb/react";
 import { tables, type DbConnection } from "./module_bindings";
 import { Lobby } from "./screens/Lobby";
 import { Game } from "./screens/Game";
-import { Results } from "./screens/Results";
+
 import { PageLayout } from "./components/PageLayout";
 
 function App() {
@@ -97,9 +97,6 @@ function App() {
     setGameCode(null);
   };
 
-  // Show exit button when user is in a game
-  const showExit = !!gameCode;
-
   // Kicked modal
   if (showKickedModal) {
     return (
@@ -129,7 +126,7 @@ function App() {
   // Route based on game status
   if (game?.status === "playing") {
     return (
-      <PageLayout showExit={showExit} onExit={handleExit}>
+      <PageLayout>
         <Game
           conn={conn!}
           identity={identity!}
@@ -142,6 +139,7 @@ function App() {
           businessEvents={gameBusinessEvents}
           solidarioTransfers={gameSolidarioTransfers}
           secretObjectives={gameSecretObjectives}
+          onExit={handleExit}
         />
       </PageLayout>
     );
@@ -149,13 +147,20 @@ function App() {
 
   if (game?.status === "finished") {
     return (
-      <PageLayout showExit={showExit} onExit={handleExit}>
-        <Results
-          game={game}
+      <PageLayout>
+        <Game
+          conn={conn!}
           identity={identity!}
+          game={game}
           players={gamePlayers}
+          payments={gamePayments}
           weekResults={gameWeekResults}
+          chatMessages={gameChatMessages}
+          customStickers={gameCustomStickers}
+          businessEvents={gameBusinessEvents}
+          solidarioTransfers={gameSolidarioTransfers}
           secretObjectives={gameSecretObjectives}
+          onExit={handleExit}
         />
       </PageLayout>
     );
@@ -163,7 +168,7 @@ function App() {
 
   // Lobby (no game, or game in lobby status)
   return (
-    <PageLayout showExit={showExit} onExit={handleExit}>
+    <PageLayout>
       <Lobby
         conn={conn!}
         identity={identity!}

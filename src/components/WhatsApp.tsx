@@ -29,13 +29,22 @@ export function WAStatusBar() {
 }
 
 // --- WhatsApp Chat Header ---
+export interface WAMenuItem {
+  label: string;
+  icon?: ReactNode;
+  onClick: () => void;
+  danger?: boolean;
+}
+
 interface WAHeaderProps {
   name: string;
   avatar?: ReactNode;
   subtitle?: string;
   verified?: boolean;
   onBack?: () => void;
+  onAvatarClick?: () => void;
   onNameClick?: () => void;
+  onPhoneClick?: () => void;
   onMenuClick?: () => void;
 }
 
@@ -45,27 +54,34 @@ export function WAHeader({
   subtitle,
   verified,
   onBack,
+  onAvatarClick,
   onNameClick,
+  onPhoneClick,
   onMenuClick,
 }: WAHeaderProps) {
   return (
     <div className="flex items-center gap-3 bg-wa-teal-dark text-white px-3 py-2">
       {/* Back arrow */}
-      <button onClick={onBack} className="hover:opacity-80 transition-opacity">
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <path d="M15 18l-6-6 6-6" />
-        </svg>
-      </button>
+      {onBack && (
+        <button onClick={onBack} className="hover:opacity-80 transition-opacity">
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </button>
+      )}
 
       {/* Avatar */}
-      <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center overflow-hidden shrink-0">
+      <div
+        className={`w-9 h-9 rounded-full bg-white/20 flex items-center justify-center overflow-hidden shrink-0 ${onAvatarClick ? "cursor-pointer hover:opacity-80 transition-opacity" : ""}`}
+        onClick={onAvatarClick}
+      >
         {avatar || (
           <svg
             width="20"
@@ -99,8 +115,11 @@ export function WAHeader({
         )}
       </div>
 
-      {/* Action icons */}
-      <div className="flex items-center gap-4">
+      {/* Phone icon */}
+      <button
+        onClick={onPhoneClick}
+        className={onPhoneClick ? "hover:opacity-80 cursor-pointer" : ""}
+      >
         <svg
           width="18"
           height="18"
@@ -110,18 +129,23 @@ export function WAHeader({
         >
           <path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 0 0-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z" />
         </svg>
-        <button onClick={onMenuClick} className={onMenuClick ? "hover:opacity-80 cursor-pointer" : ""}>
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="white"
-            opacity="0.9"
-          >
-            <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
-          </svg>
-        </button>
-      </div>
+      </button>
+
+      {/* Three-dot menu button */}
+      <button
+        onClick={onMenuClick}
+        className={onMenuClick ? "hover:opacity-80 cursor-pointer p-1" : "p-1"}
+      >
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="white"
+          opacity="0.9"
+        >
+          <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+        </svg>
+      </button>
     </div>
   );
 }
@@ -132,6 +156,37 @@ export function WAChatBody({ children }: { children: ReactNode }) {
     <div className="flex-1 overflow-y-auto wa-chat-bg px-3 py-2 space-y-1.5">
       {children}
     </div>
+  );
+}
+
+// --- Dropdown menu overlay (rendered at chat container level) ---
+export function WADropdownMenu({
+  items,
+  onClose,
+}: {
+  items: WAMenuItem[];
+  onClose: () => void;
+}) {
+  return (
+    <>
+      <div className="absolute inset-0 z-40" onClick={onClose} />
+      <div className="absolute right-2 top-20 z-50 bg-white rounded-lg shadow-xl py-1 min-w-[180px]">
+        {items.map((item, i) => (
+          <button
+            key={i}
+            onClick={() => { onClose(); item.onClick(); }}
+            className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-[14px] transition-colors cursor-pointer ${
+              item.danger
+                ? "text-red-600 hover:bg-red-50"
+                : "text-g-800 hover:bg-g-100"
+            }`}
+          >
+            {item.icon}
+            <span>{item.label}</span>
+          </button>
+        ))}
+      </div>
+    </>
   );
 }
 

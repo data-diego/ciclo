@@ -20,6 +20,7 @@ import type { DbConnection } from "../module_bindings";
 import type { Identity } from "spacetimedb";
 import type { Game, Player, ChatMessage, CustomSticker } from "../module_bindings/types";
 import { StickerPicker, StickerBubble, EMOJI_ROWS } from "../components/StickerPicker";
+import { useDarkMode, useSound } from "../components/PageLayout";
 
 // --- Props ---
 
@@ -50,6 +51,93 @@ function GrupaliaAvatar() {
 function GroupAvatar() {
   return (
     <img src="/ciclogo.png" alt="Ciclo" className="w-full h-full object-cover" />
+  );
+}
+
+function PhoneModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div
+      className="absolute inset-0 z-50 flex items-center justify-center bg-black/40"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-xl p-4 mx-6 max-w-xs w-full shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <img src="/conquienhablaswe.png" alt="" className="w-full rounded-lg" />
+        <div className="flex justify-end mt-6">
+          <button
+            onClick={onClose}
+            className="text-[13px] font-medium text-wa-teal cursor-pointer hover:opacity-80 transition-opacity py-0 px-1"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GrupaliaInfoModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div
+      className="absolute inset-0 z-50 flex items-center justify-center bg-black/40"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-xl p-4 mx-6 max-w-xs w-full shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-3 mb-3">
+          <img src="/icon.png" alt="Grupalia" className="w-10 h-10 rounded-lg" />
+          <div>
+            <h3 className="text-[16px] font-bold text-g-900">Grupalia</h3>
+            <p className="text-[11px] text-g-500">Crédito grupal digital</p>
+          </div>
+        </div>
+        <p className="text-[13px] text-g-700 leading-relaxed mb-3">
+          Grupalia es una plataforma financiera que ofrece crédito grupal digital
+          para pequeños negocios en México. Grupos de 6+ emprendedoras se respaldan
+          mutuamente para acceder a préstamos sin aval, sin papeleo y con
+          desembolso en 24 horas.
+        </p>
+        <div className="space-y-1.5 mb-4">
+          <p className="text-[12px] text-g-500">
+            <span className="font-semibold text-g-700">Ciclos de 16 semanas</span> con pagos semanales
+          </p>
+          <p className="text-[12px] text-g-500">
+            <span className="font-semibold text-g-700">100% digital</span> desde la app móvil
+          </p>
+          <p className="text-[12px] text-g-500">
+            <span className="font-semibold text-g-700">+10,000 clientas</span> y +$140M desembolsados
+          </p>
+          <p className="text-[12px] text-g-500">
+            <span className="font-semibold text-g-700">Para quién:</span> vendedoras por catálogo, comerciantes, emprendedoras
+          </p>
+        </div>
+        <a
+          href="https://www.grupalia.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-[13px] text-wa-teal font-medium hover:underline"
+        >
+          Ir a Grupalia.com
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-wa-teal">
+            <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" />
+            <polyline points="15 3 21 3 21 9" />
+            <line x1="10" y1="14" x2="21" y2="3" />
+          </svg>
+        </a>
+        <div className="flex justify-end mt-2">
+          <button
+            onClick={onClose}
+            className="text-[13px] font-medium text-wa-teal cursor-pointer hover:opacity-80 transition-opacity py-0 px-1"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -117,15 +205,20 @@ export function Lobby({ conn, identity, gameCode, setGameCode, games, players, c
     : false;
 
   if (!joinFlowDone) {
+    const joinGame = joinCode ? games.find((g) => g.code === joinCode) ?? null : null;
     return (
       <JoinFlow
         conn={conn}
         roomCode={joinCode!}
-        game={game}
+        game={joinGame}
         safeCall={safeCall}
         errorToast={errorToast}
         onDone={() => {
           setGameCode(joinCode!);
+          setJoinFlowDone(true);
+        }}
+        onGoToCreate={() => {
+          window.history.replaceState(null, "", window.location.pathname);
           setJoinFlowDone(true);
         }}
       />
@@ -137,6 +230,7 @@ export function Lobby({ conn, identity, gameCode, setGameCode, games, players, c
       <CreateFlow
         conn={conn}
         setGameCode={setGameCode}
+        games={games}
         safeCall={safeCall}
         errorToast={errorToast}
       />
@@ -159,23 +253,237 @@ export function Lobby({ conn, identity, gameCode, setGameCode, games, players, c
   );
 }
 
+function ResetModal({ onConfirm, onClose }: { onConfirm: () => void; onClose: () => void }) {
+  return (
+    <div
+      className="absolute inset-0 z-50 flex items-center justify-center bg-black/40"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-xl p-4 mx-6 max-w-xs w-full shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-center mb-2">
+          <img src="/ciclo.svg" alt="CICLO" className="w-16 h-16" />
+        </div>
+        <h3 className="text-[16px] font-bold text-g-900 text-center mb-1">¿Quieres empezar de nuevo?</h3>
+        <p className="text-[12px] text-g-500 text-center">
+          Volverás al inicio para crear o unirte a otro grupo.
+        </p>
+        <div className="flex justify-center mt-5">
+          <button
+            onClick={onConfirm}
+            className="py-1.5 px-5 rounded-lg text-[12px] font-semibold text-white bg-wa-teal hover:bg-wa-teal-dark transition-colors cursor-pointer"
+          >
+            Sí, reiniciar
+          </button>
+        </div>
+        <div className="flex justify-end mt-6">
+          <button
+            onClick={onClose}
+            className="text-[13px] font-medium text-wa-teal cursor-pointer hover:opacity-80 transition-opacity py-0 px-1"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // =====================================================
+// --- About Messages (timed reveal) ---
+
+function AboutMessages({
+  onCreateGroup,
+  onJoinGroup,
+  scrollToBottom,
+  hideButtons,
+}: {
+  onCreateGroup: () => void;
+  onJoinGroup: () => void;
+  scrollToBottom: () => void;
+  hideButtons?: boolean;
+}) {
+  const [visibleCount, setVisibleCount] = useState(0);
+  const totalMessages = 7;
+
+  useEffect(() => {
+    if (visibleCount >= totalMessages) return;
+    const delays = [1200, 3500, 3800, 3500, 3800, 3200, 2800];
+    const timer = setTimeout(() => setVisibleCount((c) => c + 1), delays[visibleCount]);
+    return () => clearTimeout(timer);
+  }, [visibleCount]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [visibleCount, scrollToBottom]);
+
+  return (
+    <>
+      <WAMessageOut time={formatTime(Date.now())}>¿Qué es esto?</WAMessageOut>
+
+      {visibleCount >= 1 && (
+        <WAMessageIn time={formatTime(Date.now())}>
+          <p>¡Buena pregunta! 😄</p>
+          <p className="mt-1.5"><strong>CICLO</strong> es un juego que hicimos en el <strong>Hackatón Grupalia 2026</strong>. La idea es que entiendas qué es un crédito grupal y lo que viven nuestras clientas.</p>
+        </WAMessageIn>
+      )}
+
+      {visibleCount >= 2 && (
+        <WAMessageIn time={formatTime(Date.now())}>
+          <p>¿Sabes cómo funciona Grupalia? 💡 Un grupo de emprendedoras se juntan, cada una pide un préstamo, y entre todas se respaldan. Si una no paga, afecta al grupo entero.</p>
+        </WAMessageIn>
+      )}
+
+      {visibleCount >= 3 && (
+        <WAMessageIn time={formatTime(Date.now())}>
+          <p>Aquí vas a simular que tienes tu propio negocito 🏪 Eliges qué vendes, pides tu crédito y tienes que ir pagándolo semana a semana mientras manejas tu negocio.</p>
+        </WAMessageIn>
+      )}
+
+      {visibleCount >= 4 && (
+        <WAMessageIn time={formatTime(Date.now())}>
+          <p>Pero no todo es tan fácil 📅 cada semana pasan cosas al azar: te llegan clientes, se te descompone algo, te sale un pedidote... y con eso decides cuánto puedes abonar.</p>
+        </WAMessageIn>
+      )}
+
+      {visibleCount >= 5 && (
+        <WAMessageIn time={formatTime(Date.now())}>
+          <p>Lo más importante: si alguien de tu grupo anda corta, le puedes mandar solidario para ayudarle 🤝 El grupo se sostiene entre todas, igualito que en la vida real.</p>
+        </WAMessageIn>
+      )}
+
+      {visibleCount >= 6 && (
+        <WAMessageIn time={formatTime(Date.now())}>
+          <p>Ah, y cada quien tiene un <strong>objetivo secreto</strong> que nadie más conoce 🤫 Si lo logras, puntos extra. Hay que ser estratégica también.</p>
+        </WAMessageIn>
+      )}
+
+      {visibleCount >= 7 && (
+        <WAMessageIn
+          time={formatTime(Date.now())}
+          buttons={hideButtons ? undefined : [
+            {
+              label: "Crear grupo",
+              icon: (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
+                </svg>
+              ),
+              onClick: onCreateGroup,
+            },
+            {
+              label: "Unirse a un grupo",
+              icon: (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4" />
+                  <polyline points="10 17 15 12 10 7" />
+                  <line x1="15" y1="12" x2="3" y2="12" />
+                </svg>
+              ),
+              onClick: onJoinGroup,
+            },
+          ]}
+        >
+          <p>Es un ejercicio de empatía para sentir lo que viven nuestras clientas 💜 ¿Le entramos?</p>
+        </WAMessageIn>
+      )}
+
+      {visibleCount < totalMessages && !hideButtons && <WATyping />}
+    </>
+  );
+}
+
+// --- Created Messages (timed reveal) ---
+
+function CreatedMessages({
+  groupName,
+  code,
+  onGo,
+  scrollToBottom,
+}: {
+  groupName: string;
+  code: string;
+  onGo: () => void;
+  scrollToBottom: () => void;
+}) {
+  const [visibleCount, setVisibleCount] = useState(0);
+  const totalMessages = 2;
+
+  useEffect(() => {
+    if (visibleCount >= totalMessages) return;
+    const delays = [1500, 2500];
+    const timer = setTimeout(() => setVisibleCount((c) => c + 1), delays[visibleCount]);
+    return () => clearTimeout(timer);
+  }, [visibleCount]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [visibleCount, scrollToBottom]);
+
+  return (
+    <>
+      {visibleCount >= 1 && (
+        <WAMessageIn time={formatTime(Date.now())}>
+          <p>¡Listo! Tu grupo <strong>{groupName}</strong> ya está creado 🎉</p>
+          <p className="mt-1.5">El código es <strong>{code}</strong>, compártelo con tu equipo para que se unan.</p>
+        </WAMessageIn>
+      )}
+
+      {visibleCount >= 2 && (
+        <WAMessageIn
+          time={formatTime(Date.now())}
+          buttons={[
+            {
+              label: "Ir a mi grupo",
+              icon: (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+              ),
+              onClick: onGo,
+            },
+          ]}
+        >
+          <p>Mucha suerte en este ciclo, van a ver que se pone bueno 💜 ¡Échenle ganas y apóyense entre todas!</p>
+        </WAMessageIn>
+      )}
+
+      {visibleCount < totalMessages && <WATyping />}
+    </>
+  );
+}
+
 // CREATE FLOW — intro + mode picker, then straight to WaitingRoom
 // =====================================================
 
 function CreateFlow({
   conn,
   setGameCode,
+  games,
   safeCall,
   errorToast,
 }: {
   conn: DbConnection;
   setGameCode: (code: string) => void;
+  games: readonly Game[];
   safeCall: SafeCall;
   errorToast: { message: string; visible: boolean };
 }) {
-  const [step, setStep] = useState<"typing_intro" | "intro" | "pick_difficulty" | "pick_mode">("typing_intro");
+  const [step, setStep] = useState<"typing_intro" | "intro" | "pick_difficulty" | "pick_mode" | "join_input" | "join_not_found" | "about" | "created">("typing_intro");
   const [difficulty, setDifficulty] = useState<Difficulty | null>(null);
+  const [joinCodeInput, setJoinCodeInput] = useState("");
+  const [triedCode, setTriedCode] = useState("");
+  const [showGrupaliaInfo, setShowGrupaliaInfo] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [showPhoneModal, setShowPhoneModal] = useState(false);
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const [didAbout, setDidAbout] = useState(false);
+  const { dark, toggle: toggleDark } = useDarkMode();
+  const { soundOn, toggleSound } = useSound();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -183,34 +491,48 @@ function CreateFlow({
     return () => clearTimeout(t);
   }, []);
 
-  useEffect(() => {
+  const scrollToBottom = useCallback(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [step]);
+  }, []);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [step, scrollToBottom]);
 
   const handlePickDifficulty = (d: Difficulty) => {
     setDifficulty(d);
     setStep("pick_mode");
   };
 
+  const [createdCode, setCreatedCode] = useState("");
+  const [createdName, setCreatedName] = useState("");
+
   const handlePickMode = (mode: GameMode) => {
     const code = generateCode();
     const groupName = generateGroupName();
     safeCall(() => {
       conn.reducers.createGame({ code, groupName, mode, difficulty: difficulty! });
-      setGameCode(code);
+      setCreatedCode(code);
+      setCreatedName(groupName);
+      setStep("created");
     });
   };
 
   return (
-    <div className="flex items-center justify-center flex-1 min-h-0 py-2 md:py-6">
+    <div className="flex items-center justify-center flex-1 min-h-0 px-2 py-2 md:px-6 md:py-6">
       <Android className="drop-shadow-2xl">
-        <div className="flex flex-col h-full bg-white text-g-900">
+        <div className="flex flex-col h-full bg-white text-g-900 relative">
           <WAStatusBar />
           <WAHeader
             name="Grupalia"
             avatar={<GrupaliaAvatar />}
             subtitle="Business account"
             verified
+            onBack={() => setShowResetModal(true)}
+            onAvatarClick={() => setShowGrupaliaInfo(true)}
+            onNameClick={() => setShowGrupaliaInfo(true)}
+            onPhoneClick={() => setShowPhoneModal(true)}
+            onMenuClick={() => setShowSettingsMenu(v => !v)}
           />
 
           <WAChatBody>
@@ -238,11 +560,26 @@ function CreateFlow({
                           ),
                           onClick: () => setStep("pick_difficulty"),
                         },
+                        {
+                          label: "Unirse a un grupo",
+                          icon: (
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4" />
+                              <polyline points="10 17 15 12 10 7" />
+                              <line x1="15" y1="12" x2="3" y2="12" />
+                            </svg>
+                          ),
+                          onClick: () => setStep("join_input"),
+                        },
+                        {
+                          label: "¿Qué es esto?",
+                          onClick: () => { setDidAbout(true); setStep("about"); },
+                        },
                       ]
                     : undefined
                 }
               >
-                <p>Hola! Soy tu promotora de <strong>Grupalia</strong>.</p>
+                <p>Hola! Soy tu promotora de <strong>Grupalia</strong> 💜</p>
                 <p className="mt-1.5">
                   ¿Estás lista para iniciar un nuevo ciclo de crédito grupal?
                   Junta a tu grupo y empecemos la experiencia.
@@ -250,8 +587,17 @@ function CreateFlow({
               </WAMessageIn>
             )}
 
+            {didAbout && (
+              <AboutMessages
+                onCreateGroup={() => setStep("pick_difficulty")}
+                onJoinGroup={() => setStep("join_input")}
+                scrollToBottom={scrollToBottom}
+                hideButtons={step !== "about"}
+              />
+            )}
+
             {/* Difficulty picker — WhatsApp quick reply buttons */}
-            {(step === "pick_difficulty" || step === "pick_mode") && (
+            {(step === "pick_difficulty" || step === "pick_mode" || step === "created") && (
               <>
                 <WAMessageOut time={formatTime(Date.now())}>Sí, quiero crear un grupo</WAMessageOut>
                 <WAMessageIn time={formatTime(Date.now())}>
@@ -260,6 +606,7 @@ function CreateFlow({
                 <WAMessageIn time={formatTime(Date.now())}>
                   <p>¿Qué nivel de dificultad quieres?</p>
                 </WAMessageIn>
+                {step === "pick_difficulty" && (
                 <div className="flex flex-wrap gap-1.5 mt-1 px-0">
                   {(
                     Object.entries(DIFFICULTY_INFO) as [Difficulty, { label: string; emoji: string; desc: string }][]
@@ -280,11 +627,12 @@ function CreateFlow({
                     </button>
                   ))}
                 </div>
+                )}
               </>
             )}
 
             {/* Mode picker */}
-            {step === "pick_mode" && difficulty && (
+            {(step === "pick_mode" || step === "created") && difficulty && (
               <>
                 <WAMessageOut time={formatTime(Date.now())}>
                   {DIFFICULTY_INFO[difficulty].emoji} {DIFFICULTY_INFO[difficulty].label}
@@ -292,6 +640,7 @@ function CreateFlow({
                 <WAMessageIn time={formatTime(Date.now())}>
                   <p>¿Cuánto tiempo quieres jugar?</p>
                 </WAMessageIn>
+                {step === "pick_mode" && (
                 <div className="flex flex-wrap gap-1.5 mt-1 px-0">
                   {(
                     Object.entries(MODE_INFO) as [GameMode, (typeof MODE_INFO)[GameMode]][]
@@ -309,14 +658,134 @@ function CreateFlow({
                     </button>
                   ))}
                 </div>
+                )}
+              </>
+            )}
+
+            {/* Created — confirmation message */}
+            {step === "created" && (
+              <CreatedMessages
+                groupName={createdName}
+                code={createdCode}
+                onGo={() => setGameCode(createdCode)}
+                scrollToBottom={scrollToBottom}
+              />
+            )}
+
+            {/* Join group input */}
+            {(step === "join_input" || step === "join_not_found") && (
+              <>
+                <WAMessageOut time={formatTime(Date.now())}>Quiero unirme a un grupo</WAMessageOut>
+                <WAMessageIn time={formatTime(Date.now())}>
+                  <p>¡Perfecto! Escribe el código del grupo que te compartieron.</p>
+                </WAMessageIn>
+              </>
+            )}
+
+            {step === "join_not_found" && (
+              <>
+                <WAMessageOut time={formatTime(Date.now())}>{triedCode}</WAMessageOut>
+                <WAMessageIn
+                  time={formatTime(Date.now())}
+                  buttons={[
+                    {
+                      label: "Crear grupo",
+                      icon: (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+                          <circle cx="9" cy="7" r="4" />
+                          <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
+                        </svg>
+                      ),
+                      onClick: () => setStep("pick_difficulty"),
+                    },
+                    {
+                      label: "Intentar otro código",
+                      icon: (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="1 4 1 10 7 10" />
+                          <path d="M3.51 15a9 9 0 102.13-9.36L1 10" />
+                        </svg>
+                      ),
+                      onClick: () => {
+                        setJoinCodeInput("");
+                        setStep("join_input");
+                      },
+                    },
+                  ]}
+                >
+                  <p>No encontré ningún grupo con el código <strong>{triedCode}</strong>. Revisa que esté bien escrito o crea tu propio grupo.</p>
+                </WAMessageIn>
               </>
             )}
 
             <div ref={scrollRef} />
           </WAChatBody>
 
-          <WAInputBar disabled />
+          <WAInputBar
+            disabled={step !== "join_input"}
+            placeholder={step === "join_input" ? "Código del grupo" : "Type a message"}
+            value={step === "join_input" ? joinCodeInput : ""}
+            onChange={step === "join_input" ? (v) => setJoinCodeInput(v.toUpperCase()) : undefined}
+            onSend={step === "join_input" ? (v) => {
+              const code = v.trim();
+              if (!code) return;
+              const found = games.find((g) => g.code === code);
+              if (found) {
+                safeCall(() => {
+                  conn.reducers.joinGame({ code });
+                  setGameCode(code);
+                });
+              } else {
+                setTriedCode(code);
+                setJoinCodeInput("");
+                setStep("join_not_found");
+              }
+            } : undefined}
+          />
           <WAToast message={errorToast.message} visible={errorToast.visible} />
+          {showGrupaliaInfo && <GrupaliaInfoModal onClose={() => setShowGrupaliaInfo(false)} />}
+          {showPhoneModal && <PhoneModal onClose={() => setShowPhoneModal(false)} />}
+          {showResetModal && (
+            <ResetModal
+              onConfirm={() => { window.history.replaceState(null, "", window.location.pathname); window.location.reload(); }}
+              onClose={() => setShowResetModal(false)}
+            />
+          )}
+          {showSettingsMenu && (
+            <div
+              className="absolute inset-0 z-40"
+              onClick={() => setShowSettingsMenu(false)}
+            >
+              <div
+                className="absolute top-[72px] right-1 bg-white rounded-md shadow-xl border border-g-200 py-0.5 z-50"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  onClick={() => { setShowSettingsMenu(false); toggleDark(); }}
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-g-800 hover:bg-g-100 cursor-pointer"
+                >
+                  {dark ? (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                  ) : (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                  )}
+                  <span>{dark ? "Modo claro" : "Modo oscuro"}</span>
+                </button>
+                <button
+                  onClick={() => { setShowSettingsMenu(false); toggleSound(); }}
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-g-800 hover:bg-g-100 cursor-pointer"
+                >
+                  {soundOn ? (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+                  ) : (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+                  )}
+                  <span>{soundOn ? "Silenciar" : "Activar sonido"}</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </Android>
     </div>
@@ -334,6 +803,7 @@ function JoinFlow({
   safeCall,
   errorToast,
   onDone,
+  onGoToCreate,
 }: {
   conn: DbConnection;
   roomCode: string;
@@ -341,9 +811,17 @@ function JoinFlow({
   safeCall: SafeCall;
   errorToast: { message: string; visible: boolean };
   onDone: () => void;
+  onGoToCreate: () => void;
 }) {
   const [step, setStep] = useState<"typing_intro" | "invite">("typing_intro");
+  const [showGrupaliaInfo, setShowGrupaliaInfo] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [showPhoneModal, setShowPhoneModal] = useState(false);
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const { dark, toggle: toggleDark } = useDarkMode();
+  const { soundOn, toggleSound } = useSound();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const gameExists = !!game;
 
   useEffect(() => {
     const t = setTimeout(() => setStep("invite"), 800);
@@ -362,15 +840,20 @@ function JoinFlow({
   };
 
   return (
-    <div className="flex items-center justify-center flex-1 min-h-0 py-2 md:py-6">
+    <div className="flex items-center justify-center flex-1 min-h-0 px-2 py-2 md:px-6 md:py-6">
       <Android className="drop-shadow-2xl">
-        <div className="flex flex-col h-full bg-white text-g-900">
+        <div className="flex flex-col h-full bg-white text-g-900 relative">
           <WAStatusBar />
           <WAHeader
             name="Grupalia"
             avatar={<GrupaliaAvatar />}
             subtitle="Business account"
             verified
+            onBack={() => setShowResetModal(true)}
+            onAvatarClick={() => setShowGrupaliaInfo(true)}
+            onNameClick={() => setShowGrupaliaInfo(true)}
+            onPhoneClick={() => setShowPhoneModal(true)}
+            onMenuClick={() => setShowSettingsMenu(v => !v)}
           />
 
           <WAChatBody>
@@ -381,7 +864,7 @@ function JoinFlow({
 
             {step === "typing_intro" && <WATyping />}
 
-            {step !== "typing_intro" && (
+            {step !== "typing_intro" && gameExists && (
               <WAMessageIn
                 time={formatTime(Date.now())}
                 buttons={[{ label: "Unirme al grupo", icon: (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="13" y1="11" x2="21" y2="3" /></svg>), onClick: handleJoinGroup }]}
@@ -389,12 +872,34 @@ function JoinFlow({
                 <p>Te invitaron a un grupo de crédito en <strong>Grupalia</strong>!</p>
                 <div className="mt-2">
                   <WALinkPreview
-                    title={game ? `Únete a ${game.groupName} (${game.code})` : "Únete a un grupo de Grupalia"}
-                    description={game ? `${MODE_INFO[game.mode as GameMode]?.label}  ~${MODE_INFO[game.mode as GameMode]?.durationMin} min` : "Tap para unirte al ciclo"}
+                    title={`Únete a ${game!.groupName} (${game!.code})`}
+                    description={`${MODE_INFO[game!.mode as GameMode]?.label}  ~${MODE_INFO[game!.mode as GameMode]?.durationMin} min`}
                     domain="ciclo.datadiego.com"
                     onClick={handleJoinGroup}
                   />
                 </div>
+              </WAMessageIn>
+            )}
+
+            {step !== "typing_intro" && !gameExists && (
+              <WAMessageIn
+                time={formatTime(Date.now())}
+                buttons={[
+                  {
+                    label: "Crear grupo",
+                    icon: (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
+                      </svg>
+                    ),
+                    onClick: onGoToCreate,
+                  },
+                ]}
+              >
+                <p>No encontré ningún grupo con el código <strong>{roomCode}</strong>.</p>
+                <p className="mt-1.5">Revisa que el código esté bien escrito o pide que te compartan el enlace de nuevo. También puedes crear tu propio grupo.</p>
               </WAMessageIn>
             )}
 
@@ -403,6 +908,48 @@ function JoinFlow({
 
           <WAInputBar disabled />
           <WAToast message={errorToast.message} visible={errorToast.visible} />
+          {showGrupaliaInfo && <GrupaliaInfoModal onClose={() => setShowGrupaliaInfo(false)} />}
+          {showPhoneModal && <PhoneModal onClose={() => setShowPhoneModal(false)} />}
+          {showResetModal && (
+            <ResetModal
+              onConfirm={() => { window.history.replaceState(null, "", window.location.pathname); window.location.reload(); }}
+              onClose={() => setShowResetModal(false)}
+            />
+          )}
+          {showSettingsMenu && (
+            <div
+              className="absolute inset-0 z-40"
+              onClick={() => setShowSettingsMenu(false)}
+            >
+              <div
+                className="absolute top-[72px] right-1 bg-white rounded-md shadow-xl border border-g-200 py-0.5 z-50"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  onClick={() => { setShowSettingsMenu(false); toggleDark(); }}
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-g-800 hover:bg-g-100 cursor-pointer"
+                >
+                  {dark ? (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                  ) : (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                  )}
+                  <span>{dark ? "Modo claro" : "Modo oscuro"}</span>
+                </button>
+                <button
+                  onClick={() => { setShowSettingsMenu(false); toggleSound(); }}
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-g-800 hover:bg-g-100 cursor-pointer"
+                >
+                  {soundOn ? (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+                  ) : (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+                  )}
+                  <span>{soundOn ? "Silenciar" : "Activar sonido"}</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </Android>
     </div>
@@ -444,6 +991,9 @@ function WaitingRoom({
   const [businessInfoOpen, setBusinessInfoOpen] = useState<BusinessType | null>(null);
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [renameInput, setRenameInput] = useState("");
+  const [showEmojiInModal, setShowEmojiInModal] = useState(false);
+
+  const [showPhoneModal, setShowPhoneModal] = useState(false);
   const [showPlayerMenu, setShowPlayerMenu] = useState(false);
   const [kickConfirm, setKickConfirm] = useState<{ name: string; identity: import("spacetimedb").Identity } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -585,7 +1135,7 @@ function WaitingRoom({
   timeline.sort((a, b) => a.ts - b.ts);
 
   return (
-    <div className="flex items-center justify-center flex-1 min-h-0 py-2 md:py-6">
+    <div className="flex items-center justify-center flex-1 min-h-0 px-2 py-2 md:px-6 md:py-6">
       <Android className="drop-shadow-2xl">
         <div className="flex flex-col h-full bg-white text-g-900 relative">
           <WAStatusBar />
@@ -594,8 +1144,9 @@ function WaitingRoom({
             avatar={<GroupAvatar />}
             subtitle={`${players.length} participant${players.length !== 1 ? "s" : ""}`}
             verified
-            onNameClick={isCreator && game.status === "lobby" ? () => { setRenameInput(game.groupName); setShowRenameModal(true); } : undefined}
-            onMenuClick={isCreator && game.status === "lobby" ? () => setShowPlayerMenu(v => !v) : undefined}
+            onNameClick={isCreator && game.status === "lobby" ? () => { setRenameInput(game.groupName); setShowEmojiInModal(false); setShowRenameModal(true); } : undefined}
+            onPhoneClick={() => setShowPhoneModal(true)}
+            onMenuClick={() => setShowPlayerMenu(v => !v)}
           />
 
           <WAChatBody>
@@ -811,7 +1362,7 @@ function WaitingRoom({
                       onClick={() => setBusinessInfoOpen(null)}
                     >
                       <div
-                        className="bg-white rounded-xl p-5 mx-6 max-w-xs w-full shadow-xl"
+                        className="bg-white rounded-xl p-4 mx-6 max-w-xs w-full shadow-xl"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <div className="text-center mb-3">
@@ -838,13 +1389,15 @@ function WaitingRoom({
                             <span className="ml-auto text-[13px] font-semibold text-red-700">{bi.negative}</span>
                           </div>
                         </div>
-                        <p className="text-[10px] text-g-400 text-center mb-3">Cada semana puede pasar un evento aleatorio en tu negocio</p>
-                        <button
-                          onClick={() => setBusinessInfoOpen(null)}
-                          className="w-full py-2 rounded-lg text-[14px] font-medium text-wa-teal border border-[#D1D7DB] hover:bg-gray-50 transition-colors cursor-pointer"
-                        >
-                          Cerrar
-                        </button>
+                        <p className="text-[10px] text-g-400 text-center">Cada semana puede pasar un evento aleatorio en tu negocio</p>
+                        <div className="flex justify-end mt-5">
+                          <button
+                            onClick={() => setBusinessInfoOpen(null)}
+                            className="text-[13px] font-medium text-wa-teal cursor-pointer hover:opacity-80 transition-opacity py-0 px-1"
+                          >
+                            Cerrar
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -968,48 +1521,112 @@ function WaitingRoom({
           {showRenameModal && (
             <div
               className="absolute inset-0 z-50 flex items-center justify-center bg-black/40"
-              onClick={() => setShowRenameModal(false)}
+              onClick={() => { setShowRenameModal(false); setShowEmojiInModal(false); }}
             >
               <div
-                className="bg-white rounded-xl p-5 mx-6 max-w-xs w-full shadow-xl"
+                className="bg-white rounded-xl p-4 mx-6 max-w-xs w-full shadow-xl max-h-[80%] overflow-y-auto"
                 onClick={(e) => e.stopPropagation()}
               >
-                <h3 className="text-[16px] font-semibold text-g-900 mb-1">Cambiar nombre del grupo</h3>
-                <p className="text-[11px] text-g-500 mb-3">Código: {game.code}</p>
-                <input
-                  type="text"
-                  value={renameInput}
-                  onChange={(e) => setRenameInput(e.target.value)}
-                  maxLength={30}
-                  className="w-full px-3 py-2 border border-g-200 rounded-lg text-[14px] text-g-900 focus:outline-none focus:border-wa-teal mb-3"
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && renameInput.trim()) {
-                      safeCall(() => conn.reducers.setGroupName({ groupName: renameInput.trim() }));
-                      setShowRenameModal(false);
-                    }
-                  }}
-                />
-                {/* Emoji picker */}
-                <div className="mb-3 max-h-[120px] overflow-y-auto space-y-0.5">
-                  {EMOJI_ROWS.map((row, i) => (
-                    <div key={i} className="flex justify-around">
-                      {row.map((emoji) => (
-                        <button
-                          key={emoji}
-                          type="button"
-                          onClick={() => setRenameInput((prev) => prev + emoji)}
-                          className="text-xl p-0.5 rounded hover:bg-g-50 active:bg-g-100 transition-colors"
-                        >
-                          {emoji}
-                        </button>
-                      ))}
-                    </div>
-                  ))}
+                {/* Group name input with emoji icon */}
+                <div className="flex items-center gap-2 mb-1">
+                  <button
+                    onClick={() => setShowEmojiInModal((v) => !v)}
+                    className="shrink-0"
+                  >
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke={showEmojiInModal ? "#128C7E" : "#9AA4B2"}
+                      strokeWidth="1.8"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+                      <circle cx="9" cy="9.5" r="1.2" fill={showEmojiInModal ? "#128C7E" : "#9AA4B2"} stroke="none" />
+                      <circle cx="15" cy="9.5" r="1.2" fill={showEmojiInModal ? "#128C7E" : "#9AA4B2"} stroke="none" />
+                    </svg>
+                  </button>
+                  <input
+                    type="text"
+                    value={renameInput}
+                    onChange={(e) => setRenameInput(e.target.value)}
+                    maxLength={30}
+                    className="flex-1 px-3 py-1.5 border border-g-200 rounded-lg text-[15px] font-semibold text-g-900 focus:outline-none focus:border-wa-teal"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && renameInput.trim()) {
+                        safeCall(() => conn.reducers.setGroupName({ groupName: renameInput.trim() }));
+                        setShowRenameModal(false);
+                        setShowEmojiInModal(false);
+                      }
+                    }}
+                  />
                 </div>
+
+                {/* Togglable emoji grid */}
+                {showEmojiInModal && (
+                  <div className="mb-2 max-h-[100px] overflow-y-auto space-y-0.5 rounded-lg bg-g-50 p-1.5">
+                    {EMOJI_ROWS.map((row, i) => (
+                      <div key={i} className="flex justify-around">
+                        {row.map((emoji) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => setRenameInput((prev) => prev + emoji)}
+                            className="text-lg p-0.5 rounded hover:bg-g-100 active:bg-g-200 transition-colors"
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <p className="text-[11px] text-g-500 mb-3">Código: {game.code}</p>
+
+                {/* Group info: player list with kick */}
+                <p className="text-[11px] font-semibold text-g-500 uppercase tracking-wide mb-1.5">
+                  Integrantes ({players.length})
+                </p>
+                <div className="space-y-1.5 mb-4">
+                  {players.map((p) => {
+                    const biz = p.businessType ? BUSINESS_INFO[p.businessType as BusinessType] : null;
+                    const isMe = p.identity.toHexString() === myHex;
+                    const isPlayerCreator = p.identity.toHexString() === game.creator.toHexString();
+                    return (
+                      <div key={p.id.toString()} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-g-50">
+                        <span className="text-[16px]">{biz?.emoji || "\u23F3"}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1">
+                            <span className="text-[13px] font-medium text-g-900 truncate">{p.name || "Sin nombre"}</span>
+                            {isMe && <span className="text-[10px] text-wa-teal font-medium">(tú)</span>}
+                            {isPlayerCreator && <span className="text-[10px] text-g-400">· anfitrión</span>}
+                          </div>
+                          {biz && <p className="text-[10px] text-g-500 truncate">{biz.label}</p>}
+                        </div>
+                        <span className={`w-2 h-2 rounded-full ${p.online ? "bg-green-500" : "bg-g-300"}`} />
+                        {isCreator && !isMe && (
+                          <button
+                            onClick={() => {
+                              setShowRenameModal(false);
+                              setShowEmojiInModal(false);
+                              setKickConfirm({ name: p.name || "Sin nombre", identity: p.identity });
+                            }}
+                            className="text-[11px] text-red-500 hover:text-red-700 font-medium px-1.5 py-0.5 rounded hover:bg-red-50 cursor-pointer shrink-0"
+                          >
+                            Sacar
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
                 <div className="flex gap-2">
                   <button
-                    onClick={() => setShowRenameModal(false)}
+                    onClick={() => { setShowRenameModal(false); setShowEmojiInModal(false); }}
                     className="flex-1 py-2 rounded-lg text-[14px] font-medium text-g-600 border border-[#D1D7DB] hover:bg-gray-50 transition-colors cursor-pointer"
                   >
                     Cancelar
@@ -1019,6 +1636,7 @@ function WaitingRoom({
                       if (renameInput.trim()) {
                         safeCall(() => conn.reducers.setGroupName({ groupName: renameInput.trim() }));
                         setShowRenameModal(false);
+                        setShowEmojiInModal(false);
                       }
                     }}
                     className="flex-1 py-2 rounded-lg text-[14px] font-medium text-white bg-wa-teal hover:bg-wa-teal/90 transition-colors cursor-pointer"
@@ -1030,55 +1648,6 @@ function WaitingRoom({
             </div>
           )}
 
-          {/* Player menu dropdown */}
-          {showPlayerMenu && (
-            <div
-              className="absolute inset-0 z-40"
-              onClick={() => setShowPlayerMenu(false)}
-            >
-              <div
-                className="absolute top-11 right-2 bg-white rounded-lg shadow-xl border border-g-200 py-1 min-w-[200px] z-50"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <p className="px-3 py-1.5 text-[11px] font-semibold text-g-500 uppercase tracking-wide">
-                  Jugadores ({players.length})
-                </p>
-                {players.map((p) => {
-                  const isMe = p.identity.toHexString() === myHex;
-                  const biz = p.businessType ? BUSINESS_INFO[p.businessType as BusinessType] : null;
-                  return (
-                    <div
-                      key={p.id.toString()}
-                      className="flex items-center justify-between px-3 py-2 hover:bg-g-50"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-[16px]">{biz?.emoji || "⏳"}</span>
-                        <div className="min-w-0">
-                          <p className="text-[14px] text-g-900 truncate">
-                            {p.name || "Sin nombre"}{isMe ? " (tú)" : ""}
-                          </p>
-                          {biz && (
-                            <p className="text-[11px] text-g-500 truncate">{biz.label}</p>
-                          )}
-                        </div>
-                      </div>
-                      {!isMe && (
-                        <button
-                          onClick={() => {
-                            setShowPlayerMenu(false);
-                            setKickConfirm({ name: p.name || "Sin nombre", identity: p.identity });
-                          }}
-                          className="text-[12px] text-err-600 hover:text-err-700 font-medium px-2 py-1 rounded hover:bg-err-50 cursor-pointer shrink-0"
-                        >
-                          Sacar
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
           {/* Kick confirm modal */}
           {kickConfirm && (
@@ -1087,7 +1656,7 @@ function WaitingRoom({
               onClick={() => setKickConfirm(null)}
             >
               <div
-                className="bg-white rounded-xl p-5 mx-6 max-w-xs w-full shadow-xl"
+                className="bg-white rounded-xl p-4 mx-6 max-w-xs w-full shadow-xl"
                 onClick={(e) => e.stopPropagation()}
               >
                 <h3 className="text-[16px] font-semibold text-g-900 mb-2">Sacar jugador</h3>
@@ -1111,6 +1680,66 @@ function WaitingRoom({
                     Sacar
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+          {showPhoneModal && <PhoneModal onClose={() => setShowPhoneModal(false)} />}
+
+          {/* Three-dot settings menu */}
+          {showPlayerMenu && (
+            <div
+              className="absolute inset-0 z-40"
+              onClick={() => setShowPlayerMenu(false)}
+            >
+              <div
+                className="absolute top-11 right-2 bg-white rounded-lg shadow-xl border border-g-200 py-1 min-w-[200px] z-50"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {isCreator && (
+                  <button
+                    onClick={() => { setShowPlayerMenu(false); setRenameInput(game.groupName); setShowEmojiInModal(false); setShowRenameModal(true); }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[14px] text-g-800 hover:bg-g-100 cursor-pointer"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    <span>Editar grupo</span>
+                  </button>
+                )}
+                <p className="px-4 py-1.5 text-[11px] font-semibold text-g-500 uppercase tracking-wide">
+                  Jugadores ({players.length})
+                </p>
+                {players.map((p) => {
+                  const isMe = p.identity.toHexString() === myHex;
+                  const biz = p.businessType ? BUSINESS_INFO[p.businessType as BusinessType] : null;
+                  return (
+                    <div
+                      key={p.id.toString()}
+                      className="flex items-center justify-between px-4 py-2 hover:bg-g-50"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-[16px]">{biz?.emoji || "⏳"}</span>
+                        <div className="min-w-0">
+                          <p className="text-[14px] text-g-900 truncate">
+                            {p.name || "Sin nombre"}{isMe ? " (tú)" : ""}
+                          </p>
+                          {biz && (
+                            <p className="text-[11px] text-g-500 truncate">{biz.label}</p>
+                          )}
+                        </div>
+                      </div>
+                      {isCreator && !isMe && (
+                        <button
+                          onClick={() => {
+                            setShowPlayerMenu(false);
+                            setKickConfirm({ name: p.name || "Sin nombre", identity: p.identity });
+                          }}
+                          className="text-[12px] text-err-600 hover:text-err-700 font-medium px-2 py-1 rounded hover:bg-err-50 cursor-pointer shrink-0"
+                        >
+                          Sacar
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

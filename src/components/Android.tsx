@@ -97,13 +97,13 @@ export function Android({
   );
 
   return (
-    <div ref={wrapperRef} className="relative h-full w-fit">
+    <div ref={wrapperRef} className="relative h-full w-fit max-w-full">
       <svg
         viewBox="0 0 380 830"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
         {...props}
-        className={`h-full w-auto ${props.className ?? ""}`}
+        className={`h-full w-auto max-w-full ${props.className ?? ""}`}
       >
         <path
           d="M376 153H378C379.105 153 380 153.895 380 155V249C380 250.105 379.105 251 378 251H376V153Z"
@@ -195,16 +195,16 @@ export function Android({
         </defs>
       </svg>
 
-      {/* Drag zone at top of phone */}
+      {/* Drag zone at top of phone (notch area only — must not cover header buttons) */}
       {!isOpen && (
         <div
           onPointerDown={beginDrag}
           className="absolute cursor-grab active:cursor-grabbing touch-none"
           style={{
             top: "0.5%",
-            left: "2%",
-            right: "2%",
-            height: "4%",
+            left: "30%",
+            right: "30%",
+            height: "4.5%",
             zIndex: 30,
           }}
         />

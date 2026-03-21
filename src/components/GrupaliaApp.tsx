@@ -12,6 +12,7 @@ import type {
   SolidarioTransfer,
   SecretObjective,
   ChatMessage,
+  WeekResult,
 } from "../module_bindings/types";
 
 interface GrupaliaAppProps {
@@ -24,6 +25,7 @@ interface GrupaliaAppProps {
   solidarioTransfers: readonly SolidarioTransfer[];
   secretObjectives: readonly SecretObjective[];
   chatMessages: readonly ChatMessage[];
+  weekResults: readonly WeekResult[];
   onBack: () => void;
   // Progress bar props
   readyCount: number;
@@ -94,6 +96,7 @@ export function GrupaliaApp({
   solidarioTransfers,
   secretObjectives,
   chatMessages,
+  weekResults,
   onBack,
   readyCount,
   totalPlayers,
@@ -196,14 +199,16 @@ export function GrupaliaApp({
           <div className="flex-1 min-w-0">
             <p className="text-[15px] font-semibold text-g-900 truncate">{game.groupName} ({game.code})</p>
             <p className="text-[11px] text-g-500">
-              Semana {game.currentWeek}/{game.weeksTotal}
-              {subPhaseInfo && ` · ${subPhaseInfo.label}`}
+              {game.status === "finished"
+                ? "Ciclo terminado"
+                : <>Semana {game.currentWeek}/{game.weeksTotal}{subPhaseInfo && ` · ${subPhaseInfo.label}`}</>
+              }
             </p>
           </div>
         </div>
 
-        {/* Progress bar + actions */}
-        {(() => {
+        {/* Progress bar + actions (hide when finished) */}
+        {game.status !== "finished" && (() => {
           const activeIdx = SUB_PHASES.findIndex((sp) => sp.key === game.subPhase);
           const buttonLabel =
             game.subPhase === "resultado"
@@ -292,8 +297,172 @@ export function GrupaliaApp({
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
 
+        {/* FINISHED STATE */}
+        {game.status === "finished" && (() => {
+          const totalWeeks = weekResults.length;
+          const weeksPassed = weekResults.filter((r) => r.passed).length;
+          const weeksMissed = totalWeeks - weeksPassed;
+          const graduationStatus =
+            weeksMissed === 0 ? "graduado" : weeksMissed <= 3 ? "no_graduado" : "moroso";
+          const pn = localPlayer.pronoun;
+          const graduationConfig = {
+            graduado: {
+              emoji: "\u{1F393}",
+              label: g(pn, "GRADUADO", "GRADUADA", "GRADUADE"),
+              message: "0 pagos perdidos. El grupo sobrevivió el ciclo!",
+              color: "ok",
+            },
+            no_graduado: {
+              emoji: "\u{1F62C}",
+              label: g(pn, "NO GRADUADO", "NO GRADUADA", "NO GRADUADE"),
+              message: `${weeksMissed} pagos tardíos. Sobrevivieron... apenas.`,
+              color: "warn",
+            },
+            moroso: {
+              emoji: "\u{1F480}",
+              label: g(pn, "MOROSO", "MOROSA", "MOROSE"),
+              message: `${weeksMissed} pagos perdidos. El grupo no sobrevivió.`,
+              color: "err",
+            },
+          };
+          const grad = graduationConfig[graduationStatus];
+          const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
+
+          return (
+            <>
+              {/* Graduation card */}
+              <Card>
+                <div className="px-4 py-5 text-center">
+                  <span className="text-5xl block mb-3">{grad.emoji}</span>
+                  <p className="text-[18px] font-bold text-g-900 mb-1">{grad.label}</p>
+                  <p className="text-[13px] text-g-600">{grad.message}</p>
+                  {game.totalMora > 0 && (
+                    <p className="text-[12px] text-err-600 font-medium mt-2">
+                      Mora total acumulada: ${game.totalMora}
+                    </p>
+                  )}
+                </div>
+              </Card>
+
+              {/* Week summary */}
+              <Card>
+                <SectionHeader title="Resumen del ciclo" />
+                <div className="px-4 pb-2">
+                  <div className="flex justify-center gap-3 mb-3">
+                    <CounterField value={`${weeksPassed}`} label="Cumplidos" />
+                    <CounterField value={`${weeksMissed}`} label="Perdidos" />
+                    <CounterField value={`${totalWeeks}`} label="Total" />
+                  </div>
+                  <div className="flex gap-1 justify-center flex-wrap">
+                    {weekResults.map((r) => (
+                      <div
+                        key={r.week}
+                        className={`w-7 h-7 rounded flex items-center justify-center text-[10px] font-mono font-bold ${
+                          r.passed ? "bg-ok-100 text-ok-700" : "bg-red-100 text-red-700"
+                        }`}
+                      >
+                        {r.week}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </Card>
+
+              {/* Final ranking */}
+              <Card>
+                <div className="px-4 pt-3 pb-1">
+                  <p className="text-[15px] font-semibold text-g-900">{"\u{1F3C6}"} Ranking final</p>
+                </div>
+                <div className="px-3 pb-3 space-y-1">
+                  {sortedPlayers.map((p, i) => {
+                    const pbt = p.businessType as BusinessType;
+                    const pinfo = pbt ? BUSINESS_INFO[pbt] : null;
+                    const plsInfo = LOAN_INFO[p.loanSize as keyof typeof LOAN_INFO];
+                    const isMe = p.identity.toHexString() === myHex;
+                    return (
+                      <div
+                        key={p.id.toString()}
+                        className={`flex items-center justify-between py-1.5 px-2.5 rounded-lg text-[12px] ${
+                          isMe ? "bg-brand-50 border border-brand-100" : "bg-g-50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-[10px] font-bold text-g-400 w-3 text-right font-mono">{i + 1}</span>
+                          <span>{pinfo?.emoji || "\u2753"}</span>
+                          <div className="min-w-0">
+                            <span className={`font-medium truncate block ${isMe ? "text-brand-700" : "text-g-900"}`}>
+                              {p.name || "..."}
+                            </span>
+                            <p className="text-[10px] text-g-500">{pinfo?.label} — {plsInfo?.emoji} ${plsInfo?.credit.toLocaleString()}</p>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end shrink-0">
+                          <span className="font-mono font-bold text-g-700">{p.score} pts</span>
+                          <span className="font-mono text-g-400 text-[11px]">${p.money.toLocaleString()}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+
+              {/* Secret objectives reveal */}
+              {secretObjectives.length > 0 && (
+                <Card>
+                  <div className="px-4 pt-3 pb-1">
+                    <p className="text-[15px] font-semibold text-g-900">{"\u{1F3AF}"} Objetivos secretos</p>
+                  </div>
+                  <div className="px-3 pb-3 space-y-2">
+                    {secretObjectives.map((obj) => {
+                      const player = players.find(
+                        (p) => p.identity.toHexString() === obj.playerIdentity.toHexString()
+                      );
+                      const obt = player?.businessType as BusinessType;
+                      const oinfo = obt ? BUSINESS_INFO[obt] : null;
+                      return (
+                        <div
+                          key={obj.id.toString()}
+                          className={`px-2.5 py-2 rounded-lg border ${
+                            obj.completed
+                              ? "bg-ok-50 border-ok-100"
+                              : "bg-red-50 border-red-200"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm">{oinfo?.emoji}</span>
+                            <span className="text-[13px] font-medium text-g-900">{player?.name}</span>
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                              obj.completed ? "bg-ok-100 text-ok-700" : "bg-red-100 text-red-700"
+                            }`}>
+                              {obj.completed ? "CUMPLIDO" : "NO"}
+                            </span>
+                          </div>
+                          <p className="text-[12px] text-g-600">{obj.description}</p>
+                          {obj.completed && (
+                            <p className="text-[11px] text-ok-600 font-medium mt-0.5">
+                              +{obj.bonusScore} pts bonus!
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </Card>
+              )}
+
+              {/* Play again */}
+              <button
+                onClick={() => window.location.reload()}
+                className="w-full py-3 rounded-lg text-[14px] font-semibold text-white bg-brand-600 hover:bg-brand-700 transition-colors cursor-pointer"
+              >
+                Jugar de nuevo
+              </button>
+            </>
+          );
+        })()}
+
         {/* Sub-phase banner */}
-        {subPhaseInfo && (
+        {game.status !== "finished" && subPhaseInfo && (
           <div className="flex items-center gap-3 py-1">
             <div className="flex-1 h-px bg-g-200" />
             <span className="text-[12px] font-medium text-g-400">{subPhaseInfo.desc}</span>
@@ -301,6 +470,7 @@ export function GrupaliaApp({
           </div>
         )}
 
+        {game.status !== "finished" && <>
         {/* Stats card */}
         <Card>
           <SectionHeader
@@ -651,6 +821,8 @@ export function GrupaliaApp({
             </div>
           </details>
         )}
+
+        </>}
 
         {/* Feedback toast */}
         {feedbackMessage && (
