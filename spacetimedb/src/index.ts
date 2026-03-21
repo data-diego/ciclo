@@ -536,12 +536,18 @@ function generateEventsForAllPlayers(ctx: any, gameCode: string, week: number) {
   for (const pl of players) {
     generateEventForPlayer(ctx, gameCode, pl.identity, pl.businessType || "tiendita", pl.income, pl.incomeModPct, week, 0);
 
-    // Dificil: chance of a second event
+    // Dificil: chance of a second event (skip if both would be neutral)
     const extraChance = DIFFICULTY_EXTRA_EVENT[difficulty] || 0;
     if (extraChance > 0) {
       const hash2 = deterministicHash(ctx.timestamp.microsSinceUnixEpoch, pl.identity.toHexString(), week, 777);
       if (hash2 % 100 < extraChance) {
-        generateEventForPlayer(ctx, gameCode, pl.identity, pl.businessType || "tiendita", pl.income, pl.incomeModPct, week, 1);
+        const firstHash = deterministicHash(ctx.timestamp.microsSinceUnixEpoch, pl.identity.toHexString(), week, 0);
+        const firstEvent = pickEvent(difficulty, pl.businessType || "tiendita", firstHash);
+        const secondEvent = pickEvent(difficulty, pl.businessType || "tiendita", hash2);
+        const bothNeutral = firstEvent.moneyDeltaPct === 0 && !firstEvent.isChoice && secondEvent.moneyDeltaPct === 0 && !secondEvent.isChoice;
+        if (!bothNeutral) {
+          generateEventForPlayer(ctx, gameCode, pl.identity, pl.businessType || "tiendita", pl.income, pl.incomeModPct, week, 1);
+        }
       }
     }
   }

@@ -157,8 +157,11 @@ export function Game({
   const { soundOn } = useSound();
 
   // Notification sounds
-  const [seenMsgCount, setSeenMsgCount] = useState(chatMessages.length);
+  const chatOnly = chatMessages.filter((m) => m.kind !== "solidario_request");
+  const [seenMsgCount, setSeenMsgCount] = useState(chatOnly.length);
   const [seenPhaseKey, setSeenPhaseKey] = useState(`${game.currentWeek}-${game.subPhase}`);
+  const [seenPaymentCount, setSeenPaymentCount] = useState(payments.length);
+  const [seenSolidarioCount, setSeenSolidarioCount] = useState(solidarioTransfers.length);
   const notifSoundRef = useRef<HTMLAudioElement | null>(null);
   const grupaliaNotifRef = useRef<HTMLAudioElement | null>(null);
   const [buzzApp, setBuzzApp] = useState<string | null>(null);
@@ -170,24 +173,25 @@ export function Game({
     grupaliaNotifRef.current.volume = 0.5;
   }, []);
 
-  // WhatsApp notification badge
-  const waUnread = activeApp === "whatsapp" ? 0 : Math.max(0, chatMessages.length - seenMsgCount);
+  // WhatsApp notification badge (exclude solidario_request — that's a Grupalia thing)
+  const waUnread = activeApp === "whatsapp" ? 0 : Math.max(0, chatOnly.length - seenMsgCount);
 
   useEffect(() => {
-    if (chatMessages.length > seenMsgCount && activeApp !== "whatsapp") {
+    if (chatOnly.length > seenMsgCount && activeApp !== "whatsapp") {
       if (soundOn) notifSoundRef.current?.play().catch(() => {});
       setBuzzApp("whatsapp");
       setTimeout(() => setBuzzApp(null), 600);
     }
-  }, [chatMessages.length, seenMsgCount, activeApp, soundOn]);
+  }, [chatOnly.length, seenMsgCount, activeApp, soundOn]);
 
   useEffect(() => {
-    if (activeApp === "whatsapp") setSeenMsgCount(chatMessages.length);
-  }, [activeApp, chatMessages.length]);
+    if (activeApp === "whatsapp") setSeenMsgCount(chatOnly.length);
+  }, [activeApp, chatOnly.length]);
 
-  // Grupalia notification badge (phase changes)
+  // Grupalia notification badge (phase changes + payments + solidario)
   const currentPhaseKey = `${game.currentWeek}-${game.subPhase}`;
-  const grupaliaUnseen = activeApp === "grupalia" ? false : currentPhaseKey !== seenPhaseKey;
+  const grupaliaGameChanges = payments.length !== seenPaymentCount || solidarioTransfers.length !== seenSolidarioCount;
+  const grupaliaUnseen = activeApp === "grupalia" ? false : (currentPhaseKey !== seenPhaseKey || grupaliaGameChanges);
 
   useEffect(() => {
     const phaseKey = `${game.currentWeek}-${game.subPhase}`;
@@ -198,9 +202,22 @@ export function Game({
     }
   }, [game.currentWeek, game.subPhase, seenPhaseKey, activeApp, soundOn]);
 
+  // Buzz grupalia on new payments or solidario transfers
   useEffect(() => {
-    if (activeApp === "grupalia") setSeenPhaseKey(`${game.currentWeek}-${game.subPhase}`);
-  }, [activeApp, game.currentWeek, game.subPhase]);
+    if ((payments.length > seenPaymentCount || solidarioTransfers.length > seenSolidarioCount) && activeApp !== "grupalia") {
+      if (soundOn) grupaliaNotifRef.current?.play().catch(() => {});
+      setBuzzApp("grupalia");
+      setTimeout(() => setBuzzApp(null), 600);
+    }
+  }, [payments.length, solidarioTransfers.length, seenPaymentCount, seenSolidarioCount, activeApp, soundOn]);
+
+  useEffect(() => {
+    if (activeApp === "grupalia") {
+      setSeenPhaseKey(`${game.currentWeek}-${game.subPhase}`);
+      setSeenPaymentCount(payments.length);
+      setSeenSolidarioCount(solidarioTransfers.length);
+    }
+  }, [activeApp, game.currentWeek, game.subPhase, payments.length, solidarioTransfers.length]);
 
   if (!localPlayer) return null;
 

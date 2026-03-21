@@ -29,11 +29,6 @@ export function useBotMessages(
 
     if (subPhase === "decision" && currentWeek === 1) {
       msgs.push({
-        id: `${wk}-pres-intro`,
-        text: "Si no saben como abrir la app de Grupalia, solo vayan a los tres puntitos de arriba a la derecha 😊",
-        kind: "presidenta",
-      });
-      msgs.push({
         id: `${wk}-pres-credit`,
         text: "Acuérdense que todo el crédito ya lo invertimos en nuestros negocios, así que ahora hay que pagarlo con lo que vamos ganando 💪",
         kind: "presidenta",
@@ -51,7 +46,7 @@ export function useBotMessages(
     if (subPhase === "decision" && hasSolidarioRequests) {
       msgs.push({
         id: `${wk}-pres-solidario`,
-        text: `Oigan pues ${solidarioRequesterName} anda batallando, a ver quien le echa la manita 🙏 abran Grupalia en los tres puntitos y manden solidario`,
+        text: `Oigan pues ${solidarioRequesterName} anda batallando, a ver quien le echa la manita 🙏`,
         kind: "presidenta",
       });
     }
@@ -61,8 +56,8 @@ export function useBotMessages(
       msgs.push({
         id: `${wk}-pres-waiting-${readyCount}`,
         text: remaining === 1
-          ? "Nomas falta una comadre! Ya merito, abran Grupalia en los puntitos de arriba 🙏"
-          : `Ya van ${readyCount} listas, faltan ${remaining}. Abran los tres puntitos arriba a la derecha para ir a Grupalia!`,
+          ? "Nomas falta una comadre! Ya merito 🙏"
+          : `Ya van ${readyCount} listas, faltan ${remaining}. Apúrenle comadres!`,
         kind: "presidenta",
       });
     }
