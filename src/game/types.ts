@@ -5,7 +5,7 @@ export type GamePhase = "lobby" | "action" | "results" | "rest" | "finished";
 export type GameMode = "experiencia" | "medio" | "completo";
 export type Difficulty = "facil" | "normal" | "dificil";
 export type PaymentChoice = "full" | "partial" | "none";
-export type GameSubPhase = "evento" | "platica" | "decision" | "resultado";
+export type GameSubPhase = "decision" | "resultado";
 export type LoanSize = "small" | "medium" | "large";
 
 export type BusinessType =
@@ -18,14 +18,14 @@ export type BusinessType =
 
 export const BUSINESS_INFO: Record<
   BusinessType,
-  { emoji: string; label: string; difficulty: string; desc: string; positive: string; negative: string }
+  { emoji: string; label: string; difficulty: string; desc: string; positivePct: number; negativePct: number }
 > = {
-  tiendita: { emoji: "\u{1F6D2}", label: "Tiendita", difficulty: "Equilibrado", desc: "Una tiendita de barrio con ventas estables", positive: "+$200", negative: "−$150" },
-  salon: { emoji: "\u{1F487}", label: "Salón", difficulty: "Riesgoso", desc: "Buen ingreso pero los gastos de equipo son altos", positive: "+$200", negative: "−$200" },
-  puesto: { emoji: "\u{1F32E}", label: "Puesto", difficulty: "Favorable", desc: "Pedidos grandes pero vulnerable al clima", positive: "+$250", negative: "−$150" },
-  catalogo: { emoji: "\u{1F457}", label: "Catálogo", difficulty: "Equilibrado", desc: "Ventas por catálogo con riesgo de devoluciones", positive: "+$200", negative: "−$150" },
-  costura: { emoji: "\u{1F9F5}", label: "Costura", difficulty: "Alto riesgo", desc: "Los mejores premios pero materiales caros", positive: "+$300", negative: "−$200" },
-  panaderia: { emoji: "\u{1F35E}", label: "Panadería", difficulty: "Favorable", desc: "Buenas ventas, solo cuida el precio de la harina", positive: "+$250", negative: "−$150" },
+  tiendita: { emoji: "\u{1F6D2}", label: "Tiendita", difficulty: "Equilibrado", desc: "Una tiendita de barrio con ventas estables", positivePct: 25, negativePct: -20 },
+  salon: { emoji: "\u{1F487}", label: "Salón", difficulty: "Riesgoso", desc: "Buen ingreso pero los gastos de equipo son altos", positivePct: 25, negativePct: -25 },
+  puesto: { emoji: "\u{1F32E}", label: "Puesto", difficulty: "Favorable", desc: "Pedidos grandes pero vulnerable al clima", positivePct: 30, negativePct: -15 },
+  catalogo: { emoji: "\u{1F457}", label: "Catálogo", difficulty: "Equilibrado", desc: "Ventas por catálogo con riesgo de devoluciones", positivePct: 25, negativePct: -20 },
+  costura: { emoji: "\u{1F9F5}", label: "Costura", difficulty: "Alto riesgo", desc: "Los mejores premios pero materiales caros", positivePct: 30, negativePct: -25 },
+  panaderia: { emoji: "\u{1F35E}", label: "Panadería", difficulty: "Favorable", desc: "Buenas ventas, solo cuida el precio de la harina", positivePct: 30, negativePct: -20 },
 };
 
 export const MODE_INFO: Record<GameMode, { label: string; emoji: string; weeks: number; durationMin: number }> = {

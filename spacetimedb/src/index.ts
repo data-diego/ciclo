@@ -16,7 +16,7 @@ const game = table(
     weeksTotal: t.u32(),
     currentWeek: t.u32(),
     phase: t.string(), // "lobby" | "action" | "finished"
-    subPhase: t.string(), // "platica" | "decision" | "resultado" | ""
+    subPhase: t.string(), // "decision" | "resultado" | ""
     readyPlayers: t.string(), // JSON array of identity hex strings
     targetPayment: t.u32(),
     totalMora: t.u32(),
@@ -97,7 +97,7 @@ const chatMessage = table(
     senderIdentity: t.identity(),
     senderName: t.string(),
     content: t.string(),
-    kind: t.string(), // "text" | "sticker" | "system" | "promoter" | "presidenta" | "event" | "divider" | "solidario_request"
+    kind: t.string(), // "text" | "sticker" | "system" | "presidenta" | "event" | "divider" | "solidario_request"
     sentAt: t.u64(),
     week: t.u32(),
   }
@@ -378,6 +378,60 @@ function readySetToJson(set: Set<string>): string {
   return JSON.stringify([...set]);
 }
 
+function playerHasPendingChoices(ctx: any, gameCode: string, playerIdentity: any, week: number): boolean {
+  return [...ctx.db.businessEvent.iter()].some(
+    (e: any) => e.gameCode === gameCode && e.week === week
+      && e.playerIdentity.isEqual(playerIdentity) && e.isChoice && !e.choiceMade
+  );
+}
+
+function playerHasPaid(ctx: any, gameCode: string, playerIdentity: any, week: number): boolean {
+  return [...ctx.db.payment.iter()].some(
+    (p: any) => p.gameCode === gameCode && p.week === week && p.playerIdentity.isEqual(playerIdentity)
+  );
+}
+
+function playerIsDecisionReady(ctx: any, gameCode: string, playerIdentity: any, week: number): boolean {
+  return !playerHasPendingChoices(ctx, gameCode, playerIdentity, week)
+    && playerHasPaid(ctx, gameCode, playerIdentity, week);
+}
+
+function autoMarkDecisionReady(ctx: any, gameCode: string) {
+  const g = ctx.db.game.code.find(gameCode);
+  if (!g || g.subPhase !== "decision") return;
+  const players = [...ctx.db.player.iter()].filter((pl: any) => pl.gameCode === gameCode);
+  const ready = getReadySet(g.readyPlayers);
+  let changed = false;
+  for (const pl of players) {
+    const hex = pl.identity.toHexString();
+    if (!ready.has(hex) && playerIsDecisionReady(ctx, gameCode, pl.identity, g.currentWeek)) {
+      ready.add(hex);
+      changed = true;
+    }
+  }
+  if (!changed) return;
+  if (players.every((pl: any) => ready.has(pl.identity.toHexString()))) {
+    advanceSubPhaseInternal(ctx, gameCode);
+  } else {
+    ctx.db.game.code.update({ ...g, readyPlayers: readySetToJson(ready) });
+  }
+}
+
+function markPlayerReady(ctx: any, gameCode: string, sender: any) {
+  const g = ctx.db.game.code.find(gameCode);
+  if (!g || g.status !== "playing") return;
+  const ready = getReadySet(g.readyPlayers);
+  const hex = sender.toHexString();
+  if (ready.has(hex)) return;
+  ready.add(hex);
+  const players = [...ctx.db.player.iter()].filter((pl: any) => pl.gameCode === gameCode);
+  if (players.every((pl: any) => ready.has(pl.identity.toHexString()))) {
+    advanceSubPhaseInternal(ctx, gameCode);
+  } else {
+    ctx.db.game.code.update({ ...g, readyPlayers: readySetToJson(ready) });
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // EVENT GENERATION
 // ═══════════════════════════════════════════════════════════════════
@@ -581,14 +635,13 @@ function advanceSubPhaseInternal(ctx: any, gameCode: string) {
   const now = ctx.timestamp.microsSinceUnixEpoch / 1000n;
   const players = [...ctx.db.player.iter()].filter((pl: any) => pl.gameCode === gameCode);
 
-  if (g.subPhase === "platica") {
+  if (g.subPhase === "decision") {
     // Auto-reject any unanswered choice events
     const unanswered = [...ctx.db.businessEvent.iter()].filter(
       (e: any) => e.gameCode === gameCode && e.week === g.currentWeek && e.isChoice && !e.choiceMade
     );
     for (const ev of unanswered) {
       ctx.db.businessEvent.id.update({ ...ev, choiceMade: true, accepted: false });
-      // Apply penalty
       if (ev.penaltyPct !== 0) {
         const p = ctx.db.player.identity.find(ev.playerIdentity);
         if (p) {
@@ -601,15 +654,6 @@ function advanceSubPhaseInternal(ctx: any, gameCode: string) {
       }
     }
 
-    ctx.db.game.code.update({ ...g, subPhase: "decision", readyPlayers: "[]" });
-
-    ctx.db.chatMessage.insert({
-      id: 0n, gameCode, senderIdentity: g.creator, senderName: "Presidenta",
-      content: "Ora si amigas, ya es hora del pago 💰 acuerdense que nadie ve cuanto pone cada quien, es entre ustedes y Grupalia nomas", kind: "presidenta",
-      sentAt: now, week: g.currentWeek,
-    });
-
-  } else if (g.subPhase === "decision") {
     // Auto-assign "none" for players who didn't pay
     const weekPayments = [...ctx.db.payment.iter()].filter(
       (p: any) => p.gameCode === gameCode && p.week === g.currentWeek
@@ -731,7 +775,7 @@ function advanceSubPhaseInternal(ctx: any, gameCode: string) {
     ctx.db.game.code.update({
       ...g,
       currentWeek: nextWeek,
-      subPhase: "platica",
+      subPhase: "decision",
       readyPlayers: "[]",
     });
 
@@ -747,6 +791,9 @@ function advanceSubPhaseInternal(ctx: any, gameCode: string) {
       id: 0n, gameCode, kind: "week_started",
       message: `Semana ${nextWeek} comienza!`,
     });
+
+    // Auto-mark ready for players with no choice events
+    autoMarkDecisionReady(ctx, gameCode);
   }
 }
 
@@ -913,7 +960,7 @@ export const startGame = spacetimedb.reducer({}, (ctx) => {
     status: "playing",
     currentWeek: 1,
     phase: "action",
-    subPhase: "platica",
+    subPhase: "decision",
     readyPlayers: "[]",
     targetPayment: totalTarget,
   });
@@ -943,8 +990,11 @@ export const startGame = spacetimedb.reducer({}, (ctx) => {
   });
   ctx.db.chatMessage.insert({
     id: 0n, gameCode: p.gameCode, senderIdentity: g.creator, senderName: "Presidenta",
-    content: "Buenos dias amigas!! 🌞 Ya empezo la semana, chequen su app de Grupalia para ver que les toco esta vez. Echenle ganas!", kind: "presidenta", sentAt: now + 1n, week: 1,
+    content: "Buenos dias amigas!! 🌞 Ya empezo la semana, chequen su app de Grupalia para ver que les toco esta vez. Si no saben como abrirla, vayan a los tres puntitos de arriba a la derecha. Echenle ganas!", kind: "presidenta", sentAt: now + 1n, week: 1,
   });
+
+  // Auto-mark ready for players with no choice events
+  autoMarkDecisionReady(ctx, p.gameCode);
 });
 
 // ─── Mark Ready ─────────────────────────────────────────────────
@@ -955,21 +1005,7 @@ export const markReady = spacetimedb.reducer({}, (ctx) => {
   const g = ctx.db.game.code.find(p.gameCode);
   if (!g) throw new SenderError("Game not found");
   if (g.status !== "playing") throw new SenderError("Game not in progress");
-
-  const ready = getReadySet(g.readyPlayers);
-  const myHex = ctx.sender.toHexString();
-  if (ready.has(myHex)) return; // already ready
-
-  ready.add(myHex);
-
-  const players = [...ctx.db.player.iter()].filter((pl: any) => pl.gameCode === p.gameCode);
-  const allReady = players.every((pl: any) => ready.has(pl.identity.toHexString()));
-
-  if (allReady) {
-    advanceSubPhaseInternal(ctx, p.gameCode);
-  } else {
-    ctx.db.game.code.update({ ...g, readyPlayers: readySetToJson(ready) });
-  }
+  markPlayerReady(ctx, p.gameCode, ctx.sender);
 });
 
 // ─── Force Advance (creator only) ──────────────────────────────
@@ -1007,7 +1043,7 @@ export const respondToEvent = spacetimedb.reducer(
     if (!p) throw new SenderError("Not in a game");
     const g = ctx.db.game.code.find(p.gameCode);
     if (!g) throw new SenderError("Game not found");
-    if (g.subPhase !== "platica") throw new SenderError("Solo puedes responder durante la plática");
+    if (g.subPhase !== "decision") throw new SenderError("Solo puedes responder durante la fase de decisión");
 
     const ev = ctx.db.businessEvent.id.find(eventId);
     if (!ev) throw new SenderError("Event not found");
@@ -1058,6 +1094,11 @@ export const respondToEvent = spacetimedb.reducer(
       moneyDelta: accepted ? -ev.costAmount : 0,
       message: `${ev.message} — ${resultMsg}`,
     });
+
+    // Auto-mark ready if choices done + paid
+    if (playerIsDecisionReady(ctx, p.gameCode, ctx.sender, g.currentWeek)) {
+      markPlayerReady(ctx, p.gameCode, ctx.sender);
+    }
   }
 );
 
@@ -1109,6 +1150,11 @@ export const makePayment = spacetimedb.reducer(
     ctx.db.player.id.update({
       ...p, money: p.money - amount, score: p.score + scoreGain,
     });
+
+    // Auto-mark ready if choices done + paid
+    if (playerIsDecisionReady(ctx, p.gameCode, ctx.sender, g.currentWeek)) {
+      markPlayerReady(ctx, p.gameCode, ctx.sender);
+    }
   }
 );
 
@@ -1169,8 +1215,8 @@ export const requestSolidario = spacetimedb.reducer(
     const g = ctx.db.game.code.find(p.gameCode);
     if (!g) throw new SenderError("Game not found");
     if (g.status !== "playing") throw new SenderError("Game not in progress");
-    if (g.subPhase !== "platica" && g.subPhase !== "decision")
-      throw new SenderError("Solo durante plática o decisión");
+    if (g.subPhase !== "decision")
+      throw new SenderError("Solo durante la fase de decisión");
 
     if (amount < SOLIDARIO_MIN || amount > SOLIDARIO_MAX)
       throw new SenderError(`El solidario debe ser entre $${SOLIDARIO_MIN} y $${SOLIDARIO_MAX}`);
@@ -1200,7 +1246,7 @@ export const shareEvent = spacetimedb.reducer(
     if (!p) throw new SenderError("Not in a game");
     const g = ctx.db.game.code.find(p.gameCode);
     if (!g) throw new SenderError("Game not found");
-    if (g.subPhase !== "platica" && g.subPhase !== "decision") throw new SenderError("Solo durante la plática o decisión");
+    if (g.subPhase !== "decision") throw new SenderError("Solo durante la fase de decisión");
     if (week !== g.currentWeek) throw new SenderError("Solo eventos de la semana actual");
 
     const event = [...ctx.db.businessEvent.iter()].find(
@@ -1239,7 +1285,7 @@ export const sendChatMessage = spacetimedb.reducer(
   { content: t.string(), kind: t.string() },
   (ctx, { content, kind }) => {
     if (!content.trim()) throw new SenderError("Message cannot be empty");
-    if (!["text", "sticker", "promoter", "presidenta"].includes(kind)) throw new SenderError("Invalid kind");
+    if (!["text", "sticker", "presidenta"].includes(kind)) throw new SenderError("Invalid kind");
 
     const p = ctx.db.player.identity.find(ctx.sender);
     if (!p) throw new SenderError("Not in a game");
@@ -1248,7 +1294,7 @@ export const sendChatMessage = spacetimedb.reducer(
     ctx.db.chatMessage.insert({
       id: 0n, gameCode: p.gameCode,
       senderIdentity: ctx.sender,
-      senderName: kind === "promoter" ? "Promotora" : kind === "presidenta" ? "Presidenta" : (p.name || "???"),
+      senderName: kind === "presidenta" ? "Presidenta" : (p.name || "???"),
       content, kind,
       sentAt: ctx.timestamp.microsSinceUnixEpoch / 1000n,
       week: g ? g.currentWeek : 0,

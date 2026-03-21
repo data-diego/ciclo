@@ -181,6 +181,55 @@ body {
   transition: background-color 0.8s ease;
 }
 
+/* --- Pitch deck animations --- */
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(60px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-60px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-slide-in-left {
+  animation: slide-in-left 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Staggered fade-in for children */
+.stagger-in > * {
+  opacity: 0;
+  animation: stagger-fade 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes stagger-fade {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.stagger-in > *:nth-child(1) { animation-delay: 0.05s; }
+.stagger-in > *:nth-child(2) { animation-delay: 0.12s; }
+.stagger-in > *:nth-child(3) { animation-delay: 0.2s; }
+.stagger-in > *:nth-child(4) { animation-delay: 0.28s; }
+.stagger-in > *:nth-child(5) { animation-delay: 0.36s; }
+.stagger-in > *:nth-child(6) { animation-delay: 0.44s; }
+.stagger-in > *:nth-child(7) { animation-delay: 0.52s; }
+.stagger-in > *:nth-child(8) { animation-delay: 0.6s; }
+
 /* Time-of-day gradient overlays */
 .time-morning { background-color: #F5E6D0; }
 .time-midday { background-color: var(--color-wa-chat-bg); }

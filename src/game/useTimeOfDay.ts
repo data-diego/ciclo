@@ -8,23 +8,11 @@ export interface TimeOfDay {
 }
 
 const SUB_PHASE_MAP: Record<string, TimeOfDay> = {
-  evento: {
-    dayLabel: "Lunes",
-    timeIcon: "\u{1F305}",
-    bgClass: "time-morning",
-    progress: 0.25,
-  },
-  platica: {
-    dayLabel: "Miércoles",
-    timeIcon: "\u2600\uFE0F",
+  decision: {
+    dayLabel: "Día de pago",
+    timeIcon: "\u{1F4B0}",
     bgClass: "time-midday",
     progress: 0.5,
-  },
-  decision: {
-    dayLabel: "Viernes",
-    timeIcon: "\u{1F307}",
-    bgClass: "time-evening",
-    progress: 0.75,
   },
   resultado: {
     dayLabel: "Noche",

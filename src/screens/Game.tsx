@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { BusinessType } from "../game/types";
-import { BUSINESS_INFO, LOAN_INFO, SOLIDARIO_MIN, SOLIDARIO_MAX, SOLIDARIO_STEP, SOLIDARIO_DEFAULT } from "../game/types";
+import { BUSINESS_INFO, LOAN_INFO } from "../game/types";
 import { useTimeOfDay } from "../game/useTimeOfDay";
 import { useBotMessages } from "../game/useBotMessages";
 import { Android } from "../components/Android";
 import {
-  WAStatusBar,
+  WAStatusBar, type StatusBarNotification,
   WAHeader,
   WADateDivider,
   WAMessageIn,
@@ -13,6 +13,7 @@ import {
   WASystemMessage,
   WAInputBar,
   WAToast,
+  CicloInfoModal,
 } from "../components/WhatsApp";
 import { StickerPicker, StickerBubble, EMOJI_ROWS } from "../components/StickerPicker";
 import { GrupaliaApp } from "../components/GrupaliaApp";
@@ -114,29 +115,24 @@ export function Game({
   useTimeOfDay(game.subPhase); // kept for future background tints
 
   // Ready state
-  const readySet = getReadySet(game.readyPlayers);
-  const readyCount = readySet.size;
-  const isReady = readySet.has(myHex);
+  const readyCount = getReadySet(game.readyPlayers).size;
 
-  // Bot messages (promotora + presidenta)
+  // Bot messages (presidenta)
   const weekPayments = payments.filter((p) => p.week === game.currentWeek);
   const weekPaidTotal = weekPayments.reduce((sum, p) => sum + p.amount, 0);
   const solidarioReqs = chatMessages.filter(
     (m) => m.kind === "solidario_request" && m.week === game.currentWeek
   );
-  const lastWeekPassed = game.currentWeek > 1
-    ? weekPayments.length > 0 ? null : null // will be derived from weekResults if available
-    : null;
+  const lastWeekResult = weekResults.find((r) => r.week === game.currentWeek - 1);
+  const lastWeekPassed = lastWeekResult ? lastWeekResult.passed : null;
 
   const botMessages = useBotMessages(
     game.subPhase,
     game.currentWeek,
     players.length,
     readyCount,
-    game.totalMora,
     game.targetPayment,
     weekPaidTotal,
-    weekPayments.length,
     solidarioReqs.length > 0,
     solidarioReqs[0]?.senderName || "",
     lastWeekPassed,
@@ -162,8 +158,10 @@ export function Game({
 
   // Notification sounds
   const [seenMsgCount, setSeenMsgCount] = useState(chatMessages.length);
+  const [seenPhaseKey, setSeenPhaseKey] = useState(`${game.currentWeek}-${game.subPhase}`);
   const notifSoundRef = useRef<HTMLAudioElement | null>(null);
   const grupaliaNotifRef = useRef<HTMLAudioElement | null>(null);
+  const [buzzApp, setBuzzApp] = useState<string | null>(null);
 
   useEffect(() => {
     notifSoundRef.current = new Audio("/1.mp3");
@@ -172,10 +170,14 @@ export function Game({
     grupaliaNotifRef.current.volume = 0.5;
   }, []);
 
-  // Chat notification sound
+  // WhatsApp notification badge
+  const waUnread = activeApp === "whatsapp" ? 0 : Math.max(0, chatMessages.length - seenMsgCount);
+
   useEffect(() => {
     if (chatMessages.length > seenMsgCount && activeApp !== "whatsapp") {
       if (soundOn) notifSoundRef.current?.play().catch(() => {});
+      setBuzzApp("whatsapp");
+      setTimeout(() => setBuzzApp(null), 600);
     }
   }, [chatMessages.length, seenMsgCount, activeApp, soundOn]);
 
@@ -183,17 +185,46 @@ export function Game({
     if (activeApp === "whatsapp") setSeenMsgCount(chatMessages.length);
   }, [activeApp, chatMessages.length]);
 
-  // Phase change notification sound
-  const prevPhaseKeyRef = useRef<string>("");
+  // Grupalia notification badge (phase changes)
+  const currentPhaseKey = `${game.currentWeek}-${game.subPhase}`;
+  const grupaliaUnseen = activeApp === "grupalia" ? false : currentPhaseKey !== seenPhaseKey;
+
   useEffect(() => {
     const phaseKey = `${game.currentWeek}-${game.subPhase}`;
-    if (prevPhaseKeyRef.current && prevPhaseKeyRef.current !== phaseKey) {
+    if (seenPhaseKey && seenPhaseKey !== phaseKey && activeApp !== "grupalia") {
       if (soundOn) grupaliaNotifRef.current?.play().catch(() => {});
+      setBuzzApp("grupalia");
+      setTimeout(() => setBuzzApp(null), 600);
     }
-    prevPhaseKeyRef.current = phaseKey;
-  }, [game.currentWeek, game.subPhase, soundOn]);
+  }, [game.currentWeek, game.subPhase, seenPhaseKey, activeApp, soundOn]);
+
+  useEffect(() => {
+    if (activeApp === "grupalia") setSeenPhaseKey(`${game.currentWeek}-${game.subPhase}`);
+  }, [activeApp, game.currentWeek, game.subPhase]);
 
   if (!localPlayer) return null;
+
+  // Status bar notification icons
+  const statusNotifications = [
+    {
+      id: "whatsapp",
+      icon: (
+        <svg viewBox="0 0 24 24" className="w-3 h-3 fill-white">
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+        </svg>
+      ),
+      badge: waUnread > 0 ? waUnread : undefined,
+      buzzing: buzzApp === "whatsapp",
+      onClick: () => setActiveApp("whatsapp"),
+    },
+    {
+      id: "grupalia",
+      icon: <img src="/grupalia_white.svg" alt="Grupalia" className="w-3 h-3" />,
+      badge: grupaliaUnseen ? true : undefined,
+      buzzing: buzzApp === "grupalia",
+      onClick: () => setActiveApp("grupalia"),
+    },
+  ];
 
   const handleMarkReady = () => {
     try { conn.reducers.markReady({}); } catch { /* ignore */ }
@@ -218,6 +249,7 @@ export function Game({
             customStickers={customStickers}
             onBack={() => setActiveApp("grupalia")}
             onExit={onExit}
+            statusNotifications={statusNotifications}
           />
         )}
 
@@ -234,87 +266,16 @@ export function Game({
             chatMessages={chatMessages}
             weekResults={weekResults}
             onBack={() => setActiveApp("whatsapp")}
-            readyCount={readyCount}
-            totalPlayers={players.length}
-            isReady={isReady}
             isCreator={isCreator}
             onMarkReady={handleMarkReady}
             onForceAdvance={handleForceAdvance}
+            onExit={onExit}
+            statusNotifications={statusNotifications}
           />
         )}
       </Android>
       </div>
     </div>
-  );
-}
-
-// --- Solidario Request Bar (modal with amount picker) ---
-
-function SolidarioRequestBar({ game, conn }: { game: GameT; conn: DbConnection }) {
-  const [showModal, setShowModal] = useState(false);
-  const [amount, setAmount] = useState(SOLIDARIO_DEFAULT);
-
-  if (game.subPhase !== "platica" && game.subPhase !== "decision") return null;
-
-  const handleSend = () => {
-    try { conn.reducers.requestSolidario({ amount }); } catch { /* ignore */ }
-    setShowModal(false);
-    setAmount(SOLIDARIO_DEFAULT);
-  };
-
-  return (
-    <>
-      <button
-        onClick={() => setShowModal(true)}
-        className="w-full flex items-center justify-center gap-1.5 py-2 text-[12px] font-semibold text-purple-600 bg-purple-50 border-t border-purple-100 hover:bg-purple-100 transition-colors cursor-pointer"
-      >
-        {"\u{1F49C}"} Pedir solidario
-      </button>
-
-      {showModal && (
-        <div
-          className="absolute inset-0 z-50 flex items-center justify-center bg-black/40"
-          onClick={() => setShowModal(false)}
-        >
-          <div
-            className="bg-white rounded-xl p-4 mx-6 max-w-[260px] w-full shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <p className="text-[15px] font-semibold text-g-900 mb-1 text-center">{"\u{1F49C}"} Pedir solidario</p>
-            <p className="text-[11px] text-g-500 mb-4 text-center">Todos verán tu solicitud</p>
-
-            <div className="flex items-center justify-center gap-4 mb-4">
-              <button
-                onClick={() => setAmount((a) => Math.max(SOLIDARIO_MIN, a - SOLIDARIO_STEP))}
-                className="w-9 h-9 rounded-full border border-g-200 bg-white text-g-600 font-bold text-[18px] hover:bg-g-50 transition-colors cursor-pointer"
-              >
-                −
-              </button>
-              <p className="text-[24px] font-bold text-purple-700 font-mono">${amount}</p>
-              <button
-                onClick={() => setAmount((a) => Math.min(SOLIDARIO_MAX, a + SOLIDARIO_STEP))}
-                className="w-9 h-9 rounded-full border border-g-200 bg-white text-g-600 font-bold text-[18px] hover:bg-g-50 transition-colors cursor-pointer"
-              >
-                +
-              </button>
-            </div>
-
-            <button
-              onClick={handleSend}
-              className="w-full py-2.5 rounded-lg text-[14px] font-semibold text-white bg-purple-600 hover:bg-purple-700 transition-colors cursor-pointer mb-2"
-            >
-              Pedir ${amount}
-            </button>
-            <button
-              onClick={() => setShowModal(false)}
-              className="w-full py-2 text-[12px] text-g-400 font-medium cursor-pointer"
-            >
-              Cancelar
-            </button>
-          </div>
-        </div>
-      )}
-    </>
   );
 }
 
@@ -329,6 +290,7 @@ function WhatsAppChat({
   customStickers,
   onBack,
   onExit,
+  statusNotifications,
 }: {
   conn: DbConnection;
   identity: Identity;
@@ -338,6 +300,7 @@ function WhatsAppChat({
   customStickers: readonly CustomSticker[];
   onBack: () => void;
   onExit?: () => void;
+  statusNotifications?: StatusBarNotification[];
 }) {
   const myHex = identity.toHexString();
   const localPlayer = players.find((p) => p.identity.toHexString() === myHex);
@@ -405,7 +368,7 @@ function WhatsAppChat({
 
   return (
     <div className="flex flex-col h-full bg-white text-g-900 relative">
-      <WAStatusBar />
+      <WAStatusBar notifications={statusNotifications} />
       <WAHeader
         name={`${game.groupName} (${game.code})`}
         avatar={<GrupaliaAvatar />}
@@ -420,14 +383,6 @@ function WhatsAppChat({
 
       <div ref={chatBodyRef} className="flex-1 overflow-y-auto wa-chat-bg px-3 py-2 space-y-1.5">
         {timeline.map((msg) => {
-          if (msg.kind === "promoter") {
-            return (
-              <WAMessageIn key={msg.id.toString()} sender="Promotora" time={formatTime(Number(msg.sentAt))}>
-                {msg.content}
-              </WAMessageIn>
-            );
-          }
-
           if (msg.kind === "presidenta") {
             return (
               <WAMessageIn key={msg.id.toString()} sender="Presidenta" time={formatTime(Number(msg.sentAt))}>
@@ -502,12 +457,6 @@ function WhatsAppChat({
             customStickers={customStickers}
           />
         )}
-
-        {/* Solidario request button during platica/decision */}
-        <SolidarioRequestBar
-          game={game}
-          conn={conn}
-        />
 
         <WAInputBar
           placeholder="Mensaje..."
@@ -746,49 +695,7 @@ function WhatsAppChat({
         </div>
       )}
 
-      {showCicloInfo && (
-        <div
-          className="absolute inset-0 z-50 flex items-center justify-center bg-black/40"
-          onClick={() => setShowCicloInfo(false)}
-        >
-          <div
-            className="bg-white rounded-xl p-4 mx-6 max-w-xs w-full shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-3 mb-3">
-              <img src="/ciclogo.png" alt="CICLO" className="w-10 h-10 rounded-full" />
-              <h3 className="text-[16px] font-bold text-g-900">CICLO</h3>
-            </div>
-            <p className="text-[13px] text-g-700 leading-relaxed mb-3">
-              Simulador de crédito grupal inspirado en la experiencia Grupalia.
-              Únete a un grupo, elige tu negocio y monto de crédito, y navega
-              ciclos semanales de pagos, eventos de negocio y mecánicas de solidaridad.
-            </p>
-            <div className="space-y-1.5 mb-4">
-              <p className="text-[12px] text-g-500">
-                <span className="font-semibold text-g-700">Suerte:</span> Eventos de negocio cada semana
-              </p>
-              <p className="text-[12px] text-g-500">
-                <span className="font-semibold text-g-700">Habilidad:</span> Decisiones de pago y solidario
-              </p>
-              <p className="text-[12px] text-g-500">
-                <span className="font-semibold text-g-700">Objetivos secretos:</span> Metas ocultas con bonos al final
-              </p>
-            </div>
-            <p className="text-[11px] text-g-400 text-center">
-              Ejercicio de empatía para entender la experiencia del crédito grupal
-            </p>
-            <div className="flex justify-end mt-5">
-            <button
-              onClick={() => setShowCicloInfo(false)}
-              className="text-[13px] font-medium text-wa-teal cursor-pointer hover:opacity-80 transition-opacity py-0 px-1"
-            >
-              Cerrar
-            </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {showCicloInfo && <CicloInfoModal onClose={() => setShowCicloInfo(false)} />}
 
       {showPhoneModal && (
         <div

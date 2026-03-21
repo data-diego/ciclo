@@ -1,5 +1,4 @@
 // Bot messages triggered by sub-phase transitions and game state.
-// Promotora = official Grupalia communications (mora, results).
 // Presidenta = the comadre del grupo, warm, gossipy, Mexican slang.
 // Client-side hook only adds REACTIVE messages not covered by server.
 
@@ -8,7 +7,7 @@ import { useMemo } from "react";
 export interface BotMessage {
   id: string;
   text: string;
-  kind: "promoter" | "presidenta";
+  kind: "presidenta";
 }
 
 export function useBotMessages(
@@ -16,10 +15,8 @@ export function useBotMessages(
   currentWeek: number,
   totalPlayers: number,
   readyCount: number,
-  totalMora: number,
   targetPayment: number,
   weekPaidTotal: number,
-  _weekPaidCount: number,
   hasSolidarioRequests: boolean,
   solidarioRequesterName: string,
   groupPassedLastWeek: boolean | null,
@@ -28,27 +25,22 @@ export function useBotMessages(
     const msgs: BotMessage[] = [];
     const wk = `w${currentWeek}`;
 
-    // ─── PROMOTORA (official, factual) ─────────────────────
-
-    if (subPhase === "evento" && totalMora > 0) {
-      msgs.push({
-        id: `${wk}-promo-mora`,
-        text: `Aviso: El grupo tiene mora acumulada de $${totalMora}. Se divide entre todos.`,
-        kind: "promoter",
-      });
-    }
-
-    if (subPhase === "platica") {
-      msgs.push({
-        id: `${wk}-promo-target`,
-        text: `El pago grupal de esta semana es de $${targetPayment.toLocaleString()}.`,
-        kind: "promoter",
-      });
-    }
-
     // ─── PRESIDENTA (la comadre, warm Mexican Spanish) ─────
 
-    if (subPhase === "evento" && groupPassedLastWeek === false) {
+    if (subPhase === "decision" && currentWeek === 1) {
+      msgs.push({
+        id: `${wk}-pres-intro`,
+        text: "Si no saben como abrir la app de Grupalia, solo vayan a los tres puntitos de arriba a la derecha 😊",
+        kind: "presidenta",
+      });
+      msgs.push({
+        id: `${wk}-pres-credit`,
+        text: "Acuérdense que todo el crédito ya lo invertimos en nuestros negocios, así que ahora hay que pagarlo con lo que vamos ganando 💪",
+        kind: "presidenta",
+      });
+    }
+
+    if (subPhase === "decision" && groupPassedLastWeek === false) {
       msgs.push({
         id: `${wk}-pres-lastweek`,
         text: "Ay amigas, la semana pasada no la libramos 😔 pero no pasa nada, esta semana si se puede! Echenle ganitas",
@@ -56,10 +48,10 @@ export function useBotMessages(
       });
     }
 
-    if (subPhase === "platica" && hasSolidarioRequests) {
+    if (subPhase === "decision" && hasSolidarioRequests) {
       msgs.push({
         id: `${wk}-pres-solidario`,
-        text: `Oigan pues ${solidarioRequesterName} anda batallando, a ver quien le echa la manita 🙏 entre todas nos sacamos adelante`,
+        text: `Oigan pues ${solidarioRequesterName} anda batallando, a ver quien le echa la manita 🙏 abran Grupalia en los tres puntitos y manden solidario`,
         kind: "presidenta",
       });
     }
@@ -69,8 +61,8 @@ export function useBotMessages(
       msgs.push({
         id: `${wk}-pres-waiting-${readyCount}`,
         text: remaining === 1
-          ? "Nomas falta una comadre! Ya merito acabamos, ahi le apuramos plis 🙏"
-          : `Oigan pues ya somos ${readyCount} listas, faltan ${remaining} nomas. Ahi le mueven porfa!`,
+          ? "Nomas falta una comadre! Ya merito, abran Grupalia en los puntitos de arriba 🙏"
+          : `Ya van ${readyCount} listas, faltan ${remaining}. Abran los tres puntitos arriba a la derecha para ir a Grupalia!`,
         kind: "presidenta",
       });
     }
@@ -87,5 +79,5 @@ export function useBotMessages(
     }
 
     return msgs;
-  }, [subPhase, currentWeek, totalPlayers, readyCount, totalMora, targetPayment, weekPaidTotal, hasSolidarioRequests, solidarioRequesterName, groupPassedLastWeek]);
+  }, [subPhase, currentWeek, totalPlayers, readyCount, targetPayment, weekPaidTotal, hasSolidarioRequests, solidarioRequesterName, groupPassedLastWeek]);
 }

@@ -1,16 +1,42 @@
 import type { ReactNode } from "react";
 
 // --- WhatsApp Status Bar ---
-export function WAStatusBar() {
+export interface StatusBarNotification {
+  id: string;
+  icon: ReactNode;
+  badge?: number | boolean;
+  buzzing?: boolean;
+  onClick?: () => void;
+}
+
+export function WAStatusBar({ notifications, className }: { notifications?: StatusBarNotification[]; className?: string }) {
   const now = new Date();
   const time = now.toLocaleTimeString([], {
     hour: "numeric",
     minute: "2-digit",
   });
   return (
-    <div className="flex items-center justify-between px-4 pt-3 pb-1 -mb-1 bg-wa-teal-dark text-white text-[11px]">
+    <div className={`flex items-center justify-between px-4 pt-3 pb-1 -mb-1 text-white text-[11px] ${className || "bg-wa-teal-dark"}`}>
       <span className="font-medium">{time}</span>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1.5">
+        {/* App notifications (only show if badge or buzzing) */}
+        {notifications?.filter((n) => n.buzzing || (n.badge != null && n.badge !== false && n.badge !== 0)).map((n) => (
+          <button
+            key={n.id}
+            onClick={n.onClick}
+            className={`relative cursor-pointer hover:opacity-80 transition-opacity ${n.buzzing ? "animate-buzz" : ""}`}
+          >
+            {n.icon}
+            {n.badge != null && n.badge !== false && n.badge !== 0 && (
+              <div className="absolute -top-1 -right-1.5 min-w-[10px] h-[10px] px-0.5 rounded-full bg-red-500 flex items-center justify-center">
+                {typeof n.badge === "number" && (
+                  <span className="text-white text-[6px] font-bold leading-none">{n.badge > 9 ? "9+" : n.badge}</span>
+                )}
+              </div>
+            )}
+          </button>
+        ))}
+        {notifications?.some((n) => n.buzzing || (n.badge != null && n.badge !== false && n.badge !== 0)) && <div className="w-px h-3 bg-white/30" />}
         {/* Signal */}
         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
           <path d="M2 20h2V8H2v12zm4 0h2V4H6v16zm4 0h2v-8h-2v8zm4 0h2V9h-2v11zm4 0h2V2h-2v18z" />
@@ -63,10 +89,10 @@ export function WAHeader({
     <div className="flex items-center gap-3 bg-wa-teal-dark text-white px-3 py-2">
       {/* Back arrow */}
       {onBack && (
-        <button onClick={onBack} className="hover:opacity-80 transition-opacity">
+        <button onClick={onBack} className="w-9 h-9 flex items-center justify-center -ml-1 rounded-full hover:bg-white/10 active:bg-white/20 transition-colors cursor-pointer">
           <svg
-            width="20"
-            height="20"
+            width="22"
+            height="22"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -545,6 +571,46 @@ export function WAToast({ message, visible }: WAToastProps) {
       `}
     >
       {message}
+    </div>
+  );
+}
+
+// --- Ciclo Info Modal ---
+export function CicloInfoModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div
+      className="absolute inset-0 z-50 flex items-center justify-center bg-black/40"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-xl p-4 mx-6 max-w-xs w-full shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-3 mb-3">
+          <img src="/ciclogo.png" alt="CICLO" className="w-10 h-10 rounded-full" />
+          <div>
+            <h3 className="text-[16px] font-bold text-g-900 capitalize">Ciclo</h3>
+            <p className="text-[11px] text-g-500 -mt-0.5">Hackatón Grupalia 2026</p>
+          </div>
+        </div>
+        <p className="text-[13px] text-g-700 leading-relaxed mb-3">
+          CICLO es un juego para entender qué es un crédito grupal y lo que
+          viven nuestras clientas. Simulas que tienes tu propio negocito,
+          pides tu crédito y lo vas pagando semana a semana mientras
+          manejas lo que pasa en tu negocio.
+        </p>
+        <p className="text-[11px] text-g-400 text-center">
+          Es un ejercicio de empatía, igualito que en la vida real
+        </p>
+        <div className="flex justify-end mt-5">
+          <button
+            onClick={onClose}
+            className="text-[13px] font-medium text-wa-teal cursor-pointer hover:opacity-80 transition-opacity py-0 px-1"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

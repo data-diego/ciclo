@@ -2,7 +2,8 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import type { BusinessType, PaymentChoice } from "../game/types";
 import { BUSINESS_INFO, LOAN_INFO, SOLIDARIO_MIN, SOLIDARIO_MAX, SOLIDARIO_STEP, SOLIDARIO_DEFAULT, g } from "../game/types";
 import { Button } from "./ui/button";
-import { Badge } from "./ui/badge";
+import { WAStatusBar, type StatusBarNotification } from "./WhatsApp";
+import { useSound, useDarkMode } from "./PageLayout";
 import type { DbConnection } from "../module_bindings";
 import type {
   Game as GameT,
@@ -27,13 +28,11 @@ interface GrupaliaAppProps {
   chatMessages: readonly ChatMessage[];
   weekResults: readonly WeekResult[];
   onBack: () => void;
-  // Progress bar props
-  readyCount: number;
-  totalPlayers: number;
-  isReady: boolean;
   isCreator: boolean;
   onMarkReady: () => void;
   onForceAdvance: () => void;
+  onExit?: () => void;
+  statusNotifications?: StatusBarNotification[];
 }
 
 // --- Reusable card components ---
@@ -73,16 +72,9 @@ function Divider() {
 // --- Sub-phase label ---
 
 const SUB_PHASE_LABELS: Record<string, { label: string; desc: string }> = {
-  platica: { label: "Plática", desc: "Revisa eventos, platica y pide solidario" },
-  decision: { label: "Decisión", desc: "Paga y envía solidario" },
+  decision: { label: "Decisión", desc: "Revisa eventos, paga y envía solidario" },
   resultado: { label: "Resultado", desc: "Ve cómo le fue al grupo" },
 };
-
-const SUB_PHASES = [
-  { key: "platica", label: "Plática", icon: "\u{1F4AC}" },
-  { key: "decision", label: "Decisión", icon: "\u{1F4B0}" },
-  { key: "resultado", label: "Resultado", icon: "\u{1F4CA}" },
-];
 
 // --- Main component ---
 
@@ -98,18 +90,22 @@ export function GrupaliaApp({
   chatMessages,
   weekResults,
   onBack,
-  readyCount,
-  totalPlayers,
-  isReady,
   isCreator,
   onMarkReady,
   onForceAdvance,
+  onExit,
+  statusNotifications,
 }: GrupaliaAppProps) {
   const [showSolidarioPicker, setShowSolidarioPicker] = useState(false);
+  const [showPedirSolidario, setShowPedirSolidario] = useState(false);
   const [solidarioAmount, setSolidarioAmount] = useState(SOLIDARIO_DEFAULT);
+  const [pedirAmount, setPedirAmount] = useState(SOLIDARIO_DEFAULT);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const [showMenu, setShowMenu] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const myHex = localPlayer.identity.toHexString();
+  const { dark, toggle: toggleDark } = useDarkMode();
+  const { soundOn, toggleSound } = useSound();
 
   const scrollToBottom = useCallback(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -146,6 +142,9 @@ export function GrupaliaApp({
   const myAllEvents = businessEvents
     .filter((e) => e.playerIdentity.toHexString() === myHex)
     .sort((a, b) => a.week - b.week);
+
+  const hasPendingChoices = myCurrentEvents.some((e) => e.isChoice && !e.choiceMade);
+  const isDecisionDone = hasLocalPaid && !hasPendingChoices;
 
   const myObjective = secretObjectives.find(
     (o) => o.playerIdentity.toHexString() === myHex
@@ -187,12 +186,13 @@ export function GrupaliaApp({
   };
 
   return (
-    <div className="flex flex-col h-full bg-g-50">
+    <div className="flex flex-col h-full bg-g-50 relative">
+      <WAStatusBar notifications={statusNotifications} className="bg-brand-700 pb-2 mb-0" />
       {/* Header */}
       <div className="bg-white border-b border-g-200 shrink-0">
         <div className="px-4 py-3 flex items-center gap-3">
-          <button onClick={onBack} className="text-g-500 hover:text-g-900 transition-colors">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <button onClick={onBack} className="w-9 h-9 flex items-center justify-center -ml-1 rounded-full text-g-500 hover:bg-g-100 hover:text-g-900 active:bg-g-200 transition-colors cursor-pointer">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M15 18l-6-6 6-6" />
             </svg>
           </button>
@@ -205,93 +205,40 @@ export function GrupaliaApp({
               }
             </p>
           </div>
+          <button onClick={() => setShowMenu((v) => !v)} className="w-9 h-9 flex items-center justify-center rounded-full text-g-500 hover:bg-g-100 hover:text-g-900 active:bg-g-200 transition-colors cursor-pointer">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="12" cy="5" r="2" />
+              <circle cx="12" cy="12" r="2" />
+              <circle cx="12" cy="19" r="2" />
+            </svg>
+          </button>
         </div>
 
-        {/* Progress bar + actions (hide when finished) */}
-        {game.status !== "finished" && (() => {
-          const activeIdx = SUB_PHASES.findIndex((sp) => sp.key === game.subPhase);
-          const buttonLabel =
-            game.subPhase === "resultado"
-              ? game.currentWeek >= game.weeksTotal
-                ? "Ver resultados"
-                : "Siguiente semana"
-              : isReady
-                ? "✓ Listo"
-                : "Listo";
-          return (
-            <div className="px-3 pb-2 space-y-1.5">
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="text-[10px] font-bold tabular-nums px-1.5 shrink-0">
-                  S{game.currentWeek}/{game.weeksTotal}
-                </Badge>
-                <div className="flex gap-0.5 flex-1">
-                  {SUB_PHASES.map((sp, i) => {
-                    const isDone = i < activeIdx;
-                    const isCurrent = i === activeIdx;
-                    return (
-                      <div key={sp.key} className="flex-1 flex flex-col items-center gap-0.5">
-                        <div
-                          className={`h-1.5 w-full rounded-full transition-all duration-500 ${
-                            isCurrent
-                              ? "bg-brand-500 shadow-sm shadow-brand-500/40"
-                              : isDone
-                                ? "bg-brand-500/40"
-                                : "bg-g-100"
-                          }`}
-                        />
-                        <span
-                          className={`text-[9px] leading-none transition-colors duration-300 ${
-                            isCurrent
-                              ? "text-brand-600 font-semibold"
-                              : isDone
-                                ? "text-brand-400/60"
-                                : "text-g-400"
-                          }`}
-                        >
-                          {sp.icon} {isCurrent ? sp.label : ""}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-                <Badge
-                  variant={isReady ? "default" : "outline"}
-                  className={`text-[10px] tabular-nums px-1.5 shrink-0 ${
-                    isReady ? "bg-brand-600 text-white border-brand-600" : "border-g-300 text-g-400"
-                  }`}
-                >
-                  {readyCount}/{totalPlayers}
-                </Badge>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  onClick={onMarkReady}
-                  disabled={game.subPhase !== "resultado" && isReady}
-                  size="sm"
-                  className={`flex-1 text-[12px] font-semibold transition-all cursor-pointer ${
-                    game.subPhase === "resultado"
-                      ? "bg-brand-600 hover:bg-brand-700 text-white"
-                      : isReady
-                        ? "bg-brand-100 text-brand-700 border-brand-200"
-                        : "bg-brand-600 hover:bg-brand-700 text-white"
-                  }`}
-                >
-                  {buttonLabel}
-                </Button>
-                {isCreator && (
-                  <Button
-                    onClick={onForceAdvance}
-                    variant="ghost"
-                    size="sm"
-                    className="text-[10px] text-g-400 hover:text-g-600 shrink-0 cursor-pointer"
-                  >
-                    Avanzar
-                  </Button>
-                )}
-              </div>
-            </div>
-          );
-        })()}
+        {/* Resultado: advance button */}
+        {game.status !== "finished" && game.subPhase === "resultado" && (
+          <div className="px-3 pb-2">
+            <Button
+              onClick={onMarkReady}
+              size="sm"
+              className="w-full text-[12px] font-semibold bg-brand-600 hover:bg-brand-700 text-white cursor-pointer"
+            >
+              {game.currentWeek >= game.weeksTotal ? "Ver resultados" : "Siguiente semana"}
+            </Button>
+          </div>
+        )}
+        {/* Creator force advance */}
+        {game.status !== "finished" && game.subPhase !== "resultado" && isCreator && (
+          <div className="px-3 pb-2">
+            <Button
+              onClick={onForceAdvance}
+              variant="ghost"
+              size="sm"
+              className="w-full text-[10px] text-g-400 hover:text-g-600 cursor-pointer"
+            >
+              Avanzar fase
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Scrollable content */}
@@ -531,10 +478,7 @@ export function GrupaliaApp({
                       {p.name || "..."}
                     </span>
                   </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className="font-mono font-bold text-g-700">{p.score} pts</span>
-                    <span className="font-mono text-g-400 text-[11px]">${p.money.toLocaleString()}</span>
-                  </div>
+                  <span className="font-mono font-bold text-g-700 shrink-0">{p.score} pts</span>
                 </div>
               );
             })}
@@ -561,7 +505,7 @@ export function GrupaliaApp({
         )}
 
         {/* PLATICA/DECISION: Events with choice UI + share button */}
-        {(game.subPhase === "platica" || game.subPhase === "decision") && myCurrentEvents.map((ev) => {
+        {game.subPhase === "decision" && myCurrentEvents.map((ev) => {
           const alreadyShared = chatMessages.some(
             (m) => m.kind === "event" && m.senderIdentity.toHexString() === myHex && m.week === ev.week
           );
@@ -603,7 +547,7 @@ export function GrupaliaApp({
                 )}
 
                 {/* Choice event: accept/reject buttons */}
-                {ev.isChoice && !ev.choiceMade && game.subPhase === "platica" && (
+                {ev.isChoice && !ev.choiceMade && game.subPhase === "decision" && (
                   <div className="mt-3 space-y-2">
                     <div className="text-[12px] text-g-500 space-y-1">
                       <p>Costo: <span className="font-semibold text-g-700">${ev.costAmount}</span></p>
@@ -697,23 +641,70 @@ export function GrupaliaApp({
           </Card>
         )}
 
-        {/* DECISION PHASE: already paid confirmation */}
-        {game.subPhase === "decision" && hasLocalPaid && (
+        {/* DECISION PHASE: done state */}
+        {game.subPhase === "decision" && isDecisionDone && (
+          <Card className="bg-ok-50 border-ok-100">
+            <div className="px-4 py-4 text-center">
+              <p className="text-[14px] font-semibold text-ok-700">{"\u2705"} Listo</p>
+              <p className="text-[12px] text-g-500 mt-1">Esperando a que tus compañeras terminen...</p>
+            </div>
+          </Card>
+        )}
+        {game.subPhase === "decision" && hasLocalPaid && !isDecisionDone && (
           <Card className="bg-ok-50 border-ok-100">
             <div className="px-4 py-4 text-center">
               <p className="text-[14px] font-semibold text-ok-700">{"\u2705"} Pago registrado</p>
+              <p className="text-[12px] text-g-500 mt-1">Revisa tus eventos pendientes</p>
             </div>
           </Card>
         )}
 
-        {/* DECISION PHASE: Solidario button */}
-        {game.subPhase === "decision" && !hasSentSolidario && localPlayer.money >= SOLIDARIO_MIN && (
-          <button
-            onClick={() => setShowSolidarioPicker(true)}
-            className="w-full text-[12px] text-brand-700 font-semibold px-3 py-2.5 border border-brand-200 rounded-lg bg-white shadow-[var(--shadow-xs)] hover:bg-brand-50 transition-colors cursor-pointer"
-          >
-            {"\u{1F49C}"} Enviar solidario
-          </button>
+        {/* Pedir solidario picker with amount selector */}
+        {showPedirSolidario && (
+          <Card>
+            <SectionHeader
+              title="Pedir solidario"
+              subtitle="Elige cuánto necesitas"
+            />
+            <div className="px-4 pb-4 space-y-3">
+              {/* Amount selector */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setPedirAmount((a) => Math.max(SOLIDARIO_MIN, a - SOLIDARIO_STEP))}
+                  className="w-8 h-8 rounded-full border border-g-200 bg-white text-g-600 font-bold text-[16px] hover:bg-g-50 transition-colors cursor-pointer"
+                >
+                  −
+                </button>
+                <div className="flex-1 text-center">
+                  <p className="text-[20px] font-bold text-purple-700 font-mono">${pedirAmount}</p>
+                </div>
+                <button
+                  onClick={() => setPedirAmount((a) => Math.min(SOLIDARIO_MAX, a + SOLIDARIO_STEP))}
+                  className="w-8 h-8 rounded-full border border-g-200 bg-white text-g-600 font-bold text-[16px] hover:bg-g-50 transition-colors cursor-pointer"
+                >
+                  +
+                </button>
+              </div>
+
+              <button
+                onClick={() => {
+                  try { conn.reducers.requestSolidario({ amount: pedirAmount }); } catch { /* ignore */ }
+                  showFeedback(`🙏 Solicitud de $${pedirAmount} enviada al grupo`);
+                  setShowPedirSolidario(false);
+                  setPedirAmount(SOLIDARIO_DEFAULT);
+                }}
+                className="w-full text-[13px] font-semibold py-2.5 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors cursor-pointer"
+              >
+                Enviar solicitud
+              </button>
+              <button
+                onClick={() => { setShowPedirSolidario(false); setPedirAmount(SOLIDARIO_DEFAULT); }}
+                className="w-full text-[12px] text-g-400 font-medium py-2 cursor-pointer"
+              >
+                Cancelar
+              </button>
+            </div>
+          </Card>
         )}
 
         {/* Solidario picker with amount selector */}
@@ -781,6 +772,26 @@ export function GrupaliaApp({
           </Card>
         )}
 
+        {/* DECISION PHASE: Solidario buttons */}
+        {game.subPhase === "decision" && (
+          <div className="flex gap-2">
+            {!hasSentSolidario && localPlayer.money >= SOLIDARIO_MIN && (
+              <button
+                onClick={() => { setShowSolidarioPicker(s => !s); setShowPedirSolidario(false); }}
+                className="flex-1 text-[12px] text-brand-700 font-semibold px-3 py-2.5 border border-brand-200 rounded-lg bg-white shadow-[var(--shadow-xs)] hover:bg-brand-50 transition-colors cursor-pointer"
+              >
+                {"\u{1F49C}"} Enviar solidario
+              </button>
+            )}
+            <button
+              onClick={() => { setShowPedirSolidario(s => !s); setShowSolidarioPicker(false); }}
+              className="flex-1 text-[12px] text-purple-700 font-semibold px-3 py-2.5 border border-purple-200 rounded-lg bg-white shadow-[var(--shadow-xs)] hover:bg-purple-50 transition-colors cursor-pointer"
+            >
+              {"\u{1F64F}"} Pedir solidario
+            </button>
+          </div>
+        )}
+
         {/* RESULTADO PHASE: Week summary */}
         {game.subPhase === "resultado" && (() => {
           const wr = [...payments].filter((p) => p.week === game.currentWeek);
@@ -833,6 +844,58 @@ export function GrupaliaApp({
 
         <div ref={scrollRef} />
       </div>
+
+      {/* Three-dot dropdown menu */}
+      {showMenu && (
+        <div
+          className="absolute inset-0 z-40"
+          onClick={() => setShowMenu(false)}
+        >
+          <div
+            className="absolute top-11 right-2 bg-white rounded-lg shadow-xl border border-g-200 py-1 min-w-[180px] z-50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => { setShowMenu(false); onBack(); }}
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[14px] text-g-800 hover:bg-g-100 cursor-pointer"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+              <span>Abrir WhatsApp</span>
+            </button>
+            <button
+              onClick={() => { setShowMenu(false); toggleDark(); }}
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[14px] text-g-800 hover:bg-g-100 cursor-pointer"
+            >
+              {dark ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+              )}
+              <span>{dark ? "Modo claro" : "Modo oscuro"}</span>
+            </button>
+            <button
+              onClick={() => { setShowMenu(false); toggleSound(); }}
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[14px] text-g-800 hover:bg-g-100 cursor-pointer"
+            >
+              {soundOn ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+              )}
+              <span>{soundOn ? "Silenciar" : "Activar sonido"}</span>
+            </button>
+            {onExit && (
+              <button
+                onClick={() => { setShowMenu(false); onExit(); }}
+                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[14px] text-red-600 hover:bg-red-50 cursor-pointer"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                <span>Salir del juego</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
