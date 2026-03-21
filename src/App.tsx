@@ -124,28 +124,31 @@ function App() {
   }
 
   // Route based on game status
-  if (game?.status === "playing") {
+  if (game && (game.status === "playing" || game.status === "finished") && !meInGame) {
     return (
       <PageLayout>
-        <Game
-          conn={conn!}
-          identity={identity!}
-          game={game}
-          players={gamePlayers}
-          payments={gamePayments}
-          weekResults={gameWeekResults}
-          chatMessages={gameChatMessages}
-          customStickers={gameCustomStickers}
-          businessEvents={gameBusinessEvents}
-          solidarioTransfers={gameSolidarioTransfers}
-          secretObjectives={gameSecretObjectives}
-          onExit={handleExit}
-        />
+        <div className="flex items-center justify-center flex-1 min-h-0">
+          <div className="bg-white rounded-xl p-6 mx-6 max-w-xs w-full shadow-xl text-center">
+            <p className="text-[40px] mb-3">🚪</p>
+            <h2 className="text-[18px] font-bold text-g-900 mb-2">Te corrieron</h2>
+            <p className="text-[14px] text-g-600 mb-4">
+              {game.status === "playing"
+                ? "Este grupo ya empezó a jugar sin ti."
+                : "Este grupo ya terminó su ciclo."}
+            </p>
+            <button
+              onClick={() => setGameCode(null)}
+              className="w-full py-2.5 rounded-lg text-[14px] font-medium text-white bg-wa-teal hover:bg-wa-teal/90 transition-colors cursor-pointer"
+            >
+              Aceptar
+            </button>
+          </div>
+        </div>
       </PageLayout>
     );
   }
 
-  if (game?.status === "finished") {
+  if (game?.status === "playing" || game?.status === "finished") {
     return (
       <PageLayout>
         <Game
