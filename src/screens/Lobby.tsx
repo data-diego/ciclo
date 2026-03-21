@@ -196,7 +196,7 @@ function CreateFlow({
   };
 
   return (
-    <div className="flex items-center justify-center p-4">
+    <div className="flex items-center justify-center flex-1 min-h-0 py-2 md:py-6">
       <Android className="drop-shadow-2xl">
         <div className="flex flex-col h-full bg-white text-g-900">
           <WAStatusBar />
@@ -312,7 +312,7 @@ function JoinFlow({
   };
 
   return (
-    <div className="flex items-center justify-center p-4">
+    <div className="flex items-center justify-center flex-1 min-h-0 py-2 md:py-6">
       <Android className="drop-shadow-2xl">
         <div className="flex flex-col h-full bg-white text-g-900">
           <WAStatusBar />
@@ -528,7 +528,7 @@ function WaitingRoom({
   timeline.sort((a, b) => a.ts - b.ts);
 
   return (
-    <div className="flex items-center justify-center p-4">
+    <div className="flex items-center justify-center flex-1 min-h-0 py-2 md:py-6">
       <Android className="drop-shadow-2xl">
         <div className="flex flex-col h-full bg-white text-g-900 relative">
           <WAStatusBar />

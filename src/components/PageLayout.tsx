@@ -22,16 +22,9 @@ export function useSound() {
   return useContext(SoundContext);
 }
 
-// --- Header center slot context ---
+// --- Header center portal target ID ---
 
-const HeaderCenterContext = createContext({
-  headerCenter: null as ReactNode,
-  setHeaderCenter: (_node: ReactNode) => {},
-});
-
-export function useHeaderCenter() {
-  return useContext(HeaderCenterContext);
-}
+export const HEADER_CENTER_PORTAL_ID = "header-center-portal";
 
 // --- Exit confirmation modal ---
 
@@ -92,7 +85,6 @@ export function PageLayout({ children, showExit, onExit }: PageLayoutProps) {
   const [dark, setDark] = useState(() => localStorage.getItem("ciclo_dark") === "1");
   const [soundOn, setSoundOn] = useState(() => localStorage.getItem("ciclo_sound") !== "0");
   const [exitModalOpen, setExitModalOpen] = useState(false);
-  const [headerCenter, setHeaderCenter] = useState<ReactNode>(null);
 
   const toggle = () => setDark((d) => {
     const next = !d;
@@ -114,7 +106,6 @@ export function PageLayout({ children, showExit, onExit }: PageLayoutProps) {
   return (
     <DarkModeContext.Provider value={{ dark, toggle }}>
     <SoundContext.Provider value={{ soundOn, toggleSound }}>
-    <HeaderCenterContext.Provider value={{ headerCenter, setHeaderCenter }}>
       <div
         className={`h-dvh flex flex-col transition-colors duration-300 ${
           dark ? "bg-g-950" : "bg-g-50"
@@ -124,13 +115,16 @@ export function PageLayout({ children, showExit, onExit }: PageLayoutProps) {
         <header className="relative z-10 flex items-center justify-between px-4 py-3">
           {/* Left: logo/title */}
           <div className="flex items-center gap-2">
-            <img src="/ciclogo.png" alt="Ciclo" className="h-7" />
+            <a href="/" onClick={() => { localStorage.removeItem("ciclo_game_code"); }}>
+              <img src="/ciclogo.png" alt="Ciclo" className="h-7" />
+            </a>
           </div>
 
-          {/* Center: slot for app dock etc */}
-          {headerCenter && (
-            <div className="flex items-center">{headerCenter}</div>
-          )}
+          {/* Center: portal target for app dock */}
+          <div
+            id={HEADER_CENTER_PORTAL_ID}
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+          />
 
           {/* Right: actions */}
           <div className="flex items-center gap-2">
@@ -262,7 +256,7 @@ export function PageLayout({ children, showExit, onExit }: PageLayoutProps) {
         </header>
 
         {/* Page content */}
-        <div className="relative z-1 flex-1 min-h-0">{children}</div>
+        <div className="relative z-1 flex-1 min-h-0 flex">{children}</div>
       </div>
 
       <ExitModal
@@ -270,7 +264,6 @@ export function PageLayout({ children, showExit, onExit }: PageLayoutProps) {
         onClose={() => setExitModalOpen(false)}
         onConfirm={handleExitConfirm}
       />
-    </HeaderCenterContext.Provider>
     </SoundContext.Provider>
     </DarkModeContext.Provider>
   );

@@ -80,7 +80,7 @@ body {
 }
 
 #root {
-  min-height: 100vh;
+  height: 100dvh;
 }
 
 /* Tilted repeating logo background */
@@ -134,6 +134,19 @@ body {
 
 .animate-buzz {
   animation: buzz 0.6s ease-in-out;
+}
+
+/* Fast spring spin — snaps around with elastic overshoot */
+@keyframes spin-spring {
+  0% { transform: rotate(0deg); }
+  60% { transform: rotate(400deg); }
+  80% { transform: rotate(350deg); }
+  90% { transform: rotate(365deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.animate-spin-spring {
+  animation: spin-spring 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
 }
 
 /* WhatsApp chat background pattern */

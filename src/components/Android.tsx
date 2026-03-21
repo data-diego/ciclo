@@ -97,9 +97,9 @@ export function Android({
   );
 
   return (
-    <div ref={wrapperRef} className="relative h-full">
+    <div ref={wrapperRef} className="relative h-full w-fit">
       <svg
-        viewBox={`0 0 ${width} ${height}`}
+        viewBox="0 0 380 830"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
         {...props}
@@ -107,38 +107,39 @@ export function Android({
       >
         <path
           d="M376 153H378C379.105 153 380 153.895 380 155V249C380 250.105 379.105 251 378 251H376V153Z"
-          className="fill-[#E5E5E5] dark:fill-[#404040]"
+          fill="#1C1C1E" className="dark:fill-[#0D0D0D]"
         />
         <path
           d="M376 301H378C379.105 301 380 301.895 380 303V351C380 352.105 379.105 353 378 353H376V301Z"
-          className="fill-[#E5E5E5] dark:fill-[#404040]"
+          fill="#1C1C1E" className="dark:fill-[#0D0D0D]"
         />
         <path
           d="M0 42C0 18.8041 18.804 0 42 0H336C359.196 0 378 18.804 378 42V788C378 811.196 359.196 830 336 830H42C18.804 830 0 811.196 0 788V42Z"
-          className="fill-[#E5E5E5] dark:fill-[#404040]"
+          fill="#1C1C1E" className="dark:fill-[#0D0D0D]"
         />
         <path
           d="M2 43C2 22.0132 19.0132 5 40 5H338C358.987 5 376 22.0132 376 43V787C376 807.987 358.987 825 338 825H40C19.0132 825 2 807.987 2 787V43Z"
-          className="fill-white dark:fill-[#262626]"
+          fill="#2C2C2E"
+          className="dark:fill-[#1A1A1A]"
         />
 
         <g clipPath="url(#androidClip)">
           <path
             d="M9.25 48C9.25 29.3604 24.3604 14.25 43 14.25H335C353.64 14.25 368.75 29.3604 368.75 48V780C368.75 798.64 353.64 813.75 335 813.75H43C24.3604 813.75 9.25 798.64 9.25 780V48Z"
-            className="fill-[#E5E5E5] stroke-[#E5E5E5] stroke-[0.5] dark:fill-[#404040] dark:stroke-[#404040]"
+            fill="white" className="dark:fill-[#262626]"
           />
         </g>
         <circle
           cx="189"
           cy="28"
           r="9"
-          className="fill-white dark:fill-[#262626]"
+          fill="#2C2C2E" className="dark:fill-[#1A1A1A]"
         />
         <circle
           cx="189"
           cy="28"
           r="4"
-          className="fill-[#E5E5E5] dark:fill-[#404040]"
+          fill="#0D0D0D" className="dark:fill-[#000]"
         />
         {src && (
           <image
@@ -175,10 +176,7 @@ export function Android({
             height="800"
             clipPath="url(#androidClip)"
           >
-            <div
-              className="h-full w-full overflow-hidden"
-              style={{ borderRadius: "33px 33px 25px 25px" }}
-            >
+            <div className="h-full w-full overflow-hidden bg-wa-teal-dark">
               {children}
             </div>
           </foreignObject>
@@ -201,12 +199,12 @@ export function Android({
       {!isOpen && (
         <div
           onPointerDown={beginDrag}
-          className="absolute cursor-grab active:cursor-grabbing"
+          className="absolute cursor-grab active:cursor-grabbing touch-none"
           style={{
             top: "0.5%",
             left: "2%",
-            right: "13%",
-            height: "2%",
+            right: "2%",
+            height: "4%",
             zIndex: 30,
           }}
         />
@@ -218,7 +216,7 @@ export function Android({
         style={{
           top: "0.5%",
           left: "2%",
-          right: "13%",
+          right: "2%",
           height: shadeY,
           borderRadius: "33px 33px 20px 20px",
           zIndex: 40,
@@ -246,7 +244,7 @@ export function Android({
         </div>
         <div
           onPointerDown={beginDrag}
-          className="absolute bottom-0 left-0 right-0 flex justify-center py-2 cursor-grab active:cursor-grabbing"
+          className="absolute bottom-0 left-0 right-0 flex justify-center py-2 cursor-grab active:cursor-grabbing touch-none"
         >
           <div className="w-10 h-1.5 rounded-full bg-white/50" />
         </div>
@@ -256,7 +254,7 @@ export function Android({
       {isOpen && (
         <div
           onPointerDown={beginDrag}
-          className="absolute inset-0 cursor-grab active:cursor-grabbing"
+          className="absolute inset-0 cursor-grab active:cursor-grabbing touch-none"
           style={{ zIndex: 35 }}
         />
       )}

@@ -61,8 +61,12 @@ function App() {
   if (!isActive) {
     return (
       <PageLayout>
-        <div className="flex items-center justify-center" style={{ minHeight: "calc(100vh - 52px)" }}>
-          <div className="text-g-500 text-sm">Connecting...</div>
+        <div className="flex items-center justify-center flex-1 min-h-0">
+          <img
+            src="/ciclogo.png"
+            alt="Ciclo"
+            className="h-20 rounded-full animate-spin-spring"
+          />
         </div>
       </PageLayout>
     );

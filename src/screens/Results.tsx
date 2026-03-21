@@ -84,8 +84,8 @@ export function Results({ game, identity, players, weekResults, secretObjectives
   );
 
   return (
-    <div className="flex items-center justify-center gap-4 p-4 overflow-x-auto">
-      <div className="shrink-0">
+    <div className="flex items-center justify-center gap-4 flex-1 min-h-0 py-2 md:py-6 overflow-x-auto">
+      <div className="shrink-0 h-full">
         <AppDock
           apps={[
             {
@@ -100,7 +100,7 @@ export function Results({ game, identity, players, weekResults, secretObjectives
         />
       </div>
 
-      <div className="shrink-0">
+      <div className="shrink-0 h-full">
         <Android className="drop-shadow-2xl">
           <div className="flex flex-col h-full bg-white text-g-900 relative">
             <WAStatusBar />

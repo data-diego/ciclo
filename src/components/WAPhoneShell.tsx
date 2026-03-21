@@ -114,9 +114,9 @@ export function WAPhoneShell({
   );
 
   return (
-    <div className="flex items-center justify-center p-4">
+    <div className="flex items-center justify-center flex-1 min-h-0 py-2 md:py-6">
       {/* relative wrapper so shade overlay can be positioned over the SVG phone */}
-      <div ref={wrapperRef} className="relative">
+      <div ref={wrapperRef} className="relative h-full">
         <Android className="drop-shadow-2xl">
           <div className="flex flex-col h-full bg-white text-g-900 relative">
             <WAStatusBar />

@@ -8,7 +8,7 @@ export function WAStatusBar() {
     minute: "2-digit",
   });
   return (
-    <div className="flex items-center justify-between px-4 pt-3 pb-0 bg-wa-teal-dark text-white text-[11px]">
+    <div className="flex items-center justify-between px-4 pt-3 pb-1 -mb-1 bg-wa-teal-dark text-white text-[11px]">
       <span className="font-medium">{time}</span>
       <div className="flex items-center gap-1">
         {/* Signal */}
