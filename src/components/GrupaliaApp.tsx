@@ -790,7 +790,7 @@ function FinishedResults({
           <path d="M22 10v6M2 10l10-5 10 5-10 5z" /><path d="M6 12v5c0 1.66 2.69 3 6 3s6-1.34 6-3v-5" />
         </svg>
       ),
-      label: g(pn, "GRADUADO", "GRADUADA", "GRADUADE"),
+      label: "GRADUADAS",
       message: "0 pagos perdidos. El grupo sobrevivi\u00F3 el ciclo!",
       bg: "bg-brand-50",
       border: "border-brand-200",
@@ -802,7 +802,7 @@ function FinishedResults({
           <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
         </svg>
       ),
-      label: g(pn, "NO GRADUADO", "NO GRADUADA", "NO GRADUADE"),
+      label: "NO GRADUADAS",
       message: `${weeksMissed} pagos tard\u00EDos. Sobrevivieron... apenas.`,
       bg: "bg-warn-50",
       border: "border-warn-100",
@@ -814,7 +814,7 @@ function FinishedResults({
           <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" /><path d="M16 16s-1.5-2-4-2-4 2-4 2" /><line x1="9" y1="9" x2="9.01" y2="9" strokeWidth="3" strokeLinecap="round" /><line x1="15" y1="9" x2="15.01" y2="9" strokeWidth="3" strokeLinecap="round" />
         </svg>
       ),
-      label: g(pn, "MOROSO", "MOROSA", "MOROSE"),
+      label: "MOROSAS",
       message: `${weeksMissed} pagos perdidos. El grupo no sobrevivi\u00F3.`,
       bg: "bg-err-50",
       border: "border-err-100",
@@ -826,8 +826,10 @@ function FinishedResults({
   const winner = sortedPlayers[0];
   const winnerInfo = winner?.businessType ? BUSINESS_INFO[winner.businessType as BusinessType] : null;
 
+  const isWinnerMe = winner?.identity.toHexString() === myHex;
+
   useEffect(() => {
-    if (confettiFired.current) return;
+    if (confettiFired.current || !isWinnerMe) return;
     confettiFired.current = true;
     const duration = 2500;
     const end = Date.now() + duration;
