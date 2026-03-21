@@ -197,8 +197,6 @@ export function Game({
   }, [activeApp, chatOnly.length]);
 
   // Grupalia notification buzz (phase changes + payments + solidario)
-  const currentPhaseKey = `${game.currentWeek}-${game.subPhase}`;
-
   useEffect(() => {
     const phaseKey = `${game.currentWeek}-${game.subPhase}`;
     if (seenPhaseKey && seenPhaseKey !== phaseKey && activeApp !== "grupalia") {
