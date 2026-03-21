@@ -18,6 +18,14 @@ export const BusinessEvent = __t.object("BusinessEvent", {
   eventKey: __t.string(),
   moneyDelta: __t.i32(),
   message: __t.string(),
+  isChoice: __t.bool(),
+  choiceMade: __t.bool(),
+  accepted: __t.bool(),
+  costAmount: __t.i32(),
+  benefitPct: __t.i32(),
+  benefitDuration: __t.u32(),
+  penaltyPct: __t.i32(),
+  penaltyDuration: __t.u32(),
 });
 export type BusinessEvent = __Infer<typeof BusinessEvent>;
 
@@ -53,7 +61,8 @@ export const Game = __t.object("Game", {
   weeksTotal: __t.u32(),
   currentWeek: __t.u32(),
   phase: __t.string(),
-  phaseEndsAt: __t.u64(),
+  subPhase: __t.string(),
+  readyPlayers: __t.string(),
   targetPayment: __t.u32(),
   totalMora: __t.u32(),
   weeksMissed: __t.u32(),
@@ -87,7 +96,11 @@ export const Player = __t.object("Player", {
   pronoun: __t.string(),
   loanSize: __t.string(),
   weeklyPayment: __t.u32(),
+  income: __t.u32(),
   money: __t.i32(),
+  score: __t.i32(),
+  incomeModPct: __t.i32(),
+  incomeModWeeks: __t.u32(),
   online: __t.bool(),
 });
 export type Player = __Infer<typeof Player>;
@@ -100,6 +113,7 @@ export const SecretObjective = __t.object("SecretObjective", {
   description: __t.string(),
   completed: __t.bool(),
   bonusMoney: __t.i32(),
+  bonusScore: __t.i32(),
 });
 export type SecretObjective = __Infer<typeof SecretObjective>;
 

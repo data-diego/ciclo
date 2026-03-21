@@ -10,7 +10,4 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
-export default {
-  receiverIdentityHex: __t.string(),
-  amount: __t.u32(),
-};
+export default {};

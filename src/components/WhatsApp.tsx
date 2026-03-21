@@ -36,6 +36,7 @@ interface WAHeaderProps {
   verified?: boolean;
   onBack?: () => void;
   onNameClick?: () => void;
+  onMenuClick?: () => void;
 }
 
 export function WAHeader({
@@ -45,6 +46,7 @@ export function WAHeader({
   verified,
   onBack,
   onNameClick,
+  onMenuClick,
 }: WAHeaderProps) {
   return (
     <div className="flex items-center gap-3 bg-wa-teal-dark text-white px-3 py-2">
@@ -108,15 +110,17 @@ export function WAHeader({
         >
           <path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 0 0-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z" />
         </svg>
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="white"
-          opacity="0.9"
-        >
-          <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
-        </svg>
+        <button onClick={onMenuClick} className={onMenuClick ? "hover:opacity-80 cursor-pointer" : ""}>
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="white"
+            opacity="0.9"
+          >
+            <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+          </svg>
+        </button>
       </div>
     </div>
   );
@@ -170,7 +174,7 @@ interface WAMessageInProps {
   time?: string;
   sender?: string;
   footer?: string;
-  buttons?: { label: string; icon?: ReactNode; onClick?: () => void }[];
+  buttons?: { label: string; icon?: ReactNode; onClick?: () => void; disabled?: boolean }[];
 }
 
 export function WAMessageIn({
@@ -213,13 +217,16 @@ export function WAMessageIn({
               <button
                 key={i}
                 onClick={btn.onClick}
-                className="
+                disabled={btn.disabled}
+                className={`
                   w-full bg-white rounded-lg shadow-sm
-                  px-3 py-2.5 text-[14px] font-medium text-wa-teal
+                  px-3 py-2.5 text-[14px] font-medium
                   flex items-center justify-center gap-2
-                  hover:bg-gray-50 active:bg-gray-100
-                  transition-colors cursor-pointer
-                "
+                  transition-colors
+                  ${btn.disabled
+                    ? "text-g-400 cursor-not-allowed opacity-60"
+                    : "text-wa-teal hover:bg-gray-50 active:bg-gray-100 cursor-pointer"}
+                `}
               >
                 {btn.label}
                 {btn.icon}

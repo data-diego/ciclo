@@ -1,4 +1,4 @@
-// Maps elapsed time within the action phase to a day-of-week visual
+// Maps sub-phase to visual state (turn-based, no timers)
 
 export interface TimeOfDay {
   dayLabel: string;
@@ -7,56 +7,40 @@ export interface TimeOfDay {
   progress: number; // 0-1 through the week
 }
 
-const PHASE_DURATION = 60; // seconds
+const SUB_PHASE_MAP: Record<string, TimeOfDay> = {
+  evento: {
+    dayLabel: "Lunes",
+    timeIcon: "\u{1F305}",
+    bgClass: "time-morning",
+    progress: 0.25,
+  },
+  platica: {
+    dayLabel: "Miércoles",
+    timeIcon: "\u2600\uFE0F",
+    bgClass: "time-midday",
+    progress: 0.5,
+  },
+  decision: {
+    dayLabel: "Viernes",
+    timeIcon: "\u{1F307}",
+    bgClass: "time-evening",
+    progress: 0.75,
+  },
+  resultado: {
+    dayLabel: "Noche",
+    timeIcon: "\u{1F319}",
+    bgClass: "time-night",
+    progress: 1.0,
+  },
+};
 
-const DAYS = [
-  { label: "Lunes", icon: "\u{1F305}", bg: "time-morning" },    // 0-12s
-  { label: "Martes", icon: "\u2600\uFE0F", bg: "time-midday" },  // 12-24s
-  { label: "Miercoles", icon: "\u{1F324}\uFE0F", bg: "time-afternoon" }, // 24-36s
-  { label: "Jueves", icon: "\u{1F307}", bg: "time-evening" },    // 36-48s
-  { label: "Viernes", icon: "\u{1F306}", bg: "time-sunset" },    // 48-60s
-];
+const DEFAULT: TimeOfDay = {
+  dayLabel: "",
+  timeIcon: "",
+  bgClass: "",
+  progress: 0,
+};
 
-export function useTimeOfDay(
-  phase: string,
-  secondsLeft: number,
-): TimeOfDay {
-  if (phase === "results") {
-    return {
-      dayLabel: "Viernes noche",
-      timeIcon: "\u{1F319}",
-      bgClass: "time-night",
-      progress: 1,
-    };
-  }
-
-  if (phase === "rest") {
-    return {
-      dayLabel: "Domingo",
-      timeIcon: "\u2600\uFE0F",
-      bgClass: "time-sunday",
-      progress: 1,
-    };
-  }
-
-  if (phase !== "action") {
-    return {
-      dayLabel: "",
-      timeIcon: "",
-      bgClass: "",
-      progress: 0,
-    };
-  }
-
-  const elapsed = PHASE_DURATION - secondsLeft;
-  const dayIndex = Math.min(Math.floor(elapsed / 12), DAYS.length - 1);
-  const day = DAYS[dayIndex];
-  const progress = elapsed / PHASE_DURATION;
-
-  return {
-    dayLabel: day.label,
-    timeIcon: day.icon,
-    bgClass: day.bg,
-    progress,
-  };
+export function useTimeOfDay(subPhase: string): TimeOfDay {
+  return SUB_PHASE_MAP[subPhase] || DEFAULT;
 }

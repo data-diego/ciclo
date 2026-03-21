@@ -37,10 +37,16 @@ import {
 import AdvancePhaseReducer from "./advance_phase_reducer";
 import CreateGameReducer from "./create_game_reducer";
 import DeleteStickerReducer from "./delete_sticker_reducer";
+import ForceAdvanceReducer from "./force_advance_reducer";
 import JoinGameReducer from "./join_game_reducer";
+import KickPlayerReducer from "./kick_player_reducer";
+import LeaveGameReducer from "./leave_game_reducer";
 import MakePaymentReducer from "./make_payment_reducer";
+import MarkReadyReducer from "./mark_ready_reducer";
 import PickBusinessTypeReducer from "./pick_business_type_reducer";
 import PickLoanSizeReducer from "./pick_loan_size_reducer";
+import RequestSolidarioReducer from "./request_solidario_reducer";
+import RespondToEventReducer from "./respond_to_event_reducer";
 import SendChatMessageReducer from "./send_chat_message_reducer";
 import SendSolidarioReducer from "./send_solidario_reducer";
 import SetGroupNameReducer from "./set_group_name_reducer";
@@ -207,10 +213,16 @@ const reducersSchema = __reducers(
   __reducerSchema("advance_phase", AdvancePhaseReducer),
   __reducerSchema("create_game", CreateGameReducer),
   __reducerSchema("delete_sticker", DeleteStickerReducer),
+  __reducerSchema("force_advance", ForceAdvanceReducer),
   __reducerSchema("join_game", JoinGameReducer),
+  __reducerSchema("kick_player", KickPlayerReducer),
+  __reducerSchema("leave_game", LeaveGameReducer),
   __reducerSchema("make_payment", MakePaymentReducer),
+  __reducerSchema("mark_ready", MarkReadyReducer),
   __reducerSchema("pick_business_type", PickBusinessTypeReducer),
   __reducerSchema("pick_loan_size", PickLoanSizeReducer),
+  __reducerSchema("request_solidario", RequestSolidarioReducer),
+  __reducerSchema("respond_to_event", RespondToEventReducer),
   __reducerSchema("send_chat_message", SendChatMessageReducer),
   __reducerSchema("send_solidario", SendSolidarioReducer),
   __reducerSchema("set_group_name", SetGroupNameReducer),

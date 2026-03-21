@@ -18,4 +18,12 @@ export default __t.row({
   eventKey: __t.string().name("event_key"),
   moneyDelta: __t.i32().name("money_delta"),
   message: __t.string(),
+  isChoice: __t.bool().name("is_choice"),
+  choiceMade: __t.bool().name("choice_made"),
+  accepted: __t.bool(),
+  costAmount: __t.i32().name("cost_amount"),
+  benefitPct: __t.i32().name("benefit_pct"),
+  benefitDuration: __t.u32().name("benefit_duration"),
+  penaltyPct: __t.i32().name("penalty_pct"),
+  penaltyDuration: __t.u32().name("penalty_duration"),
 });

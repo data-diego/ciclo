@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSpacetimeDB } from "spacetimedb/react";
 import { useTable } from "spacetimedb/react";
 import { tables, type DbConnection } from "./module_bindings";
@@ -57,6 +57,23 @@ function App() {
   const gameSolidarioTransfers = solidarioTransfers.filter((t) => t.gameCode === gameCode);
   const gameSecretObjectives = secretObjectives.filter((o) => o.gameCode === gameCode);
 
+  // Detect kicked: we had a player row, now it's gone while game is still in lobby
+  const [showKickedModal, setShowKickedModal] = useState(false);
+  const wasInGame = useRef(false);
+
+  const meInGame = identity && gameCode
+    ? gamePlayers.some((p) => p.identity.toHexString() === identity.toHexString())
+    : false;
+
+  useEffect(() => {
+    if (meInGame) {
+      wasInGame.current = true;
+    } else if (wasInGame.current && gameCode && game?.status === "lobby") {
+      wasInGame.current = false;
+      setShowKickedModal(true);
+    }
+  }, [meInGame, gameCode, game?.status]);
+
   // Loading state
   if (!isActive) {
     return (
@@ -72,11 +89,42 @@ function App() {
     );
   }
 
-  // Exit handler — clears game code to return to lobby
-  const handleExit = () => setGameCode(null);
+  // Exit handler — in lobby, also remove player from server
+  const handleExit = () => {
+    if (game?.status === "lobby" && conn) {
+      try { conn.reducers.leaveGame({}); } catch {}
+    }
+    setGameCode(null);
+  };
 
   // Show exit button when user is in a game
   const showExit = !!gameCode;
+
+  // Kicked modal
+  if (showKickedModal) {
+    return (
+      <PageLayout>
+        <div className="flex items-center justify-center flex-1 min-h-0">
+          <div className="bg-white rounded-xl p-6 mx-6 max-w-xs w-full shadow-xl text-center">
+            <p className="text-[40px] mb-3">🚪</p>
+            <h2 className="text-[18px] font-bold text-g-900 mb-2">Te corrieron</h2>
+            <p className="text-[14px] text-g-600 mb-4">
+              El anfitrión te sacó del grupo.
+            </p>
+            <button
+              onClick={() => {
+                setShowKickedModal(false);
+                setGameCode(null);
+              }}
+              className="w-full py-2.5 rounded-lg text-[14px] font-medium text-white bg-wa-teal hover:bg-wa-teal/90 transition-colors cursor-pointer"
+            >
+              Aceptar
+            </button>
+          </div>
+        </div>
+      </PageLayout>
+    );
+  }
 
   // Route based on game status
   if (game?.status === "playing") {

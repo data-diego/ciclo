@@ -18,4 +18,5 @@ export default __t.row({
   description: __t.string(),
   completed: __t.bool(),
   bonusMoney: __t.i32().name("bonus_money"),
+  bonusScore: __t.i32().name("bonus_score"),
 });

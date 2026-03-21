@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { GameMode, Difficulty, BusinessType, LoanSize } from "../game/types";
-import { BUSINESS_INFO, MODE_INFO, DIFFICULTY_INFO, LOAN_INFO, TASA_PER_MIL, TASA_BY_DIFFICULTY, calcWeeklyPayment, calcTotalPayback, g } from "../game/types";
+import { BUSINESS_INFO, MODE_INFO, DIFFICULTY_INFO, LOAN_INFO, INCOME_BY_LOAN, TASA_PER_MIL, TASA_BY_DIFFICULTY, calcWeeklyPayment, g } from "../game/types";
 import { generateCode, generateGroupName } from "../game/helpers";
 import { Android } from "../components/Android";
 import {
@@ -444,6 +444,8 @@ function WaitingRoom({
   const [businessInfoOpen, setBusinessInfoOpen] = useState<BusinessType | null>(null);
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [renameInput, setRenameInput] = useState("");
+  const [showPlayerMenu, setShowPlayerMenu] = useState(false);
+  const [kickConfirm, setKickConfirm] = useState<{ name: string; identity: import("spacetimedb").Identity } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const promptRef = useRef<HTMLDivElement>(null);
 
@@ -464,6 +466,8 @@ function WaitingRoom({
           : localPlayer && localPlayer.name
             ? "pronoun"
             : "name";
+
+  const allPlayersReady = players.length >= 2 && players.every(p => p.name && p.businessType && p.loanSize);
 
   useEffect(() => {
     setStep(currentStep);
@@ -591,6 +595,7 @@ function WaitingRoom({
             subtitle={`${players.length} participant${players.length !== 1 ? "s" : ""}`}
             verified
             onNameClick={isCreator && game.status === "lobby" ? () => { setRenameInput(game.groupName); setShowRenameModal(true); } : undefined}
+            onMenuClick={isCreator && game.status === "lobby" ? () => setShowPlayerMenu(v => !v) : undefined}
           />
 
           <WAChatBody>
@@ -870,7 +875,7 @@ function WaitingRoom({
                         "
                       >
                         {info.emoji} {info.label} <span className="font-semibold">${info.credit.toLocaleString()}</span>
-                        <span className="text-g-500 text-[11px]">${weekly.toLocaleString()}/sem</span>
+                        <span className="text-g-500 text-[11px]">Pago: ${weekly}/sem · Ingreso: ${INCOME_BY_LOAN[size]}/sem</span>
                       </button>
                     );
                   })}
@@ -885,20 +890,25 @@ function WaitingRoom({
                 buttons={[
                   ...(players.length >= 2
                     ? [{
-                        label: "Iniciar ciclo!",
-                        icon: (
+                        label: allPlayersReady
+                          ? "Iniciar ciclo!"
+                          : "Esperando que todos elijan negocio...",
+                        icon: allPlayersReady ? (
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <polygon points="5 3 19 12 5 21 5 3" />
                           </svg>
-                        ),
-                        onClick: () => safeCall(() => conn.reducers.startGame({})),
+                        ) : undefined,
+                        disabled: !allPlayersReady,
+                        onClick: allPlayersReady ? () => safeCall(() => conn.reducers.startGame({})) : undefined,
                       }]
                     : []),
                 ]}
               >
                 {players.length < 2
                   ? `Esperando jugadores... (${players.length}/2 mínimo)`
-                  : `${players.length} jugadores listos!`}
+                  : allPlayersReady
+                    ? `${players.length} jugadores listos!`
+                    : `${players.filter(p => p.businessType && p.loanSize).length}/${players.length} jugadores listos`}
               </WAMessageIn>
             )}
 
@@ -1014,6 +1024,91 @@ function WaitingRoom({
                     className="flex-1 py-2 rounded-lg text-[14px] font-medium text-white bg-wa-teal hover:bg-wa-teal/90 transition-colors cursor-pointer"
                   >
                     Guardar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Player menu dropdown */}
+          {showPlayerMenu && (
+            <div
+              className="absolute inset-0 z-40"
+              onClick={() => setShowPlayerMenu(false)}
+            >
+              <div
+                className="absolute top-11 right-2 bg-white rounded-lg shadow-xl border border-g-200 py-1 min-w-[200px] z-50"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <p className="px-3 py-1.5 text-[11px] font-semibold text-g-500 uppercase tracking-wide">
+                  Jugadores ({players.length})
+                </p>
+                {players.map((p) => {
+                  const isMe = p.identity.toHexString() === myHex;
+                  const biz = p.businessType ? BUSINESS_INFO[p.businessType as BusinessType] : null;
+                  return (
+                    <div
+                      key={p.id.toString()}
+                      className="flex items-center justify-between px-3 py-2 hover:bg-g-50"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-[16px]">{biz?.emoji || "⏳"}</span>
+                        <div className="min-w-0">
+                          <p className="text-[14px] text-g-900 truncate">
+                            {p.name || "Sin nombre"}{isMe ? " (tú)" : ""}
+                          </p>
+                          {biz && (
+                            <p className="text-[11px] text-g-500 truncate">{biz.label}</p>
+                          )}
+                        </div>
+                      </div>
+                      {!isMe && (
+                        <button
+                          onClick={() => {
+                            setShowPlayerMenu(false);
+                            setKickConfirm({ name: p.name || "Sin nombre", identity: p.identity });
+                          }}
+                          className="text-[12px] text-err-600 hover:text-err-700 font-medium px-2 py-1 rounded hover:bg-err-50 cursor-pointer shrink-0"
+                        >
+                          Sacar
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Kick confirm modal */}
+          {kickConfirm && (
+            <div
+              className="absolute inset-0 z-50 flex items-center justify-center bg-black/40"
+              onClick={() => setKickConfirm(null)}
+            >
+              <div
+                className="bg-white rounded-xl p-5 mx-6 max-w-xs w-full shadow-xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h3 className="text-[16px] font-semibold text-g-900 mb-2">Sacar jugador</h3>
+                <p className="text-[14px] text-g-600 mb-4">
+                  ¿Estás seguro que quieres sacar a <strong>{kickConfirm.name}</strong> del grupo?
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setKickConfirm(null)}
+                    className="flex-1 py-2 rounded-lg text-[14px] font-medium text-g-600 border border-[#D1D7DB] hover:bg-gray-50 transition-colors cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => {
+                      safeCall(() => conn.reducers.kickPlayer({ playerIdentity: kickConfirm.identity }));
+                      setKickConfirm(null);
+                    }}
+                    className="flex-1 py-2 rounded-lg text-[14px] font-medium text-white bg-err-600 hover:bg-err-700 transition-colors cursor-pointer"
+                  >
+                    Sacar
                   </button>
                 </div>
               </div>

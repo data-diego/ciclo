@@ -73,7 +73,7 @@ export function Results({ game, identity, players, weekResults, secretObjectives
   };
 
   const grad = graduationConfig[graduationStatus];
-  const sortedPlayers = [...players].sort((a, b) => b.money - a.money);
+  const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
 
   const whatsappIcon = (
     <div className="w-full h-full bg-[#25D366] flex items-center justify-center">
@@ -180,9 +180,10 @@ export function Results({ game, identity, players, weekResults, secretObjectives
                             <p className="text-[10px] text-g-500">{info?.label} — {lsInfo?.emoji} ${lsInfo?.credit.toLocaleString()}</p>
                           </div>
                         </div>
-                        <span className="font-mono font-bold text-g-900 text-[13px]">
-                          ${p.money.toLocaleString()}
-                        </span>
+                        <div className="text-right shrink-0">
+                          <span className="font-mono font-bold text-g-900 text-[13px]">{p.score} pts</span>
+                          <p className="font-mono text-[10px] text-g-400">${p.money.toLocaleString()}</p>
+                        </div>
                       </div>
                     );
                   })}
@@ -221,7 +222,7 @@ export function Results({ game, identity, players, weekResults, secretObjectives
                           <p className="text-[12px] text-g-600">{obj.description}</p>
                           {obj.completed && (
                             <p className="text-[11px] text-ok-600 font-medium mt-0.5">
-                              +${obj.bonusMoney} bonus!
+                              +{obj.bonusScore} pts bonus!
                             </p>
                           )}
                         </div>

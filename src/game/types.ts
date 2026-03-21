@@ -4,7 +4,8 @@ export type GameStatus = "lobby" | "playing" | "finished";
 export type GamePhase = "lobby" | "action" | "results" | "rest" | "finished";
 export type GameMode = "experiencia" | "medio" | "completo";
 export type Difficulty = "facil" | "normal" | "dificil";
-export type PaymentChoice = "full" | "partial" | "none" | "double";
+export type PaymentChoice = "full" | "partial" | "none";
+export type GameSubPhase = "evento" | "platica" | "decision" | "resultado";
 export type LoanSize = "small" | "medium" | "large";
 
 export type BusinessType =
@@ -73,8 +74,47 @@ export function g(pronoun: string | undefined, m: string, f: string, x?: string)
   return m;
 }
 
-export type PlayerRole = "member" | "presidenta"; // legacy compat for store.ts
-export const FULL_PAYMENT = 750; // legacy compat — payments now use player.weeklyPayment
+export const SOLIDARIO_MIN = 50;
+export const SOLIDARIO_MAX = 500;
+export const SOLIDARIO_STEP = 50;
+export const SOLIDARIO_DEFAULT = 200;
 
-export const BASE_INCOME = 1200;
-export const SOLIDARIO_AMOUNT = 200;
+// Income scales with loan size — bigger business = more revenue but tighter margins
+export const INCOME_BY_LOAN: Record<LoanSize, number> = {
+  small: 850,
+  medium: 1050,
+  large: 1250,
+};
+
+// Starting money = 1 week of income × this multiplier
+export const STARTING_MONEY_MULT: Record<Difficulty, number> = {
+  facil: 1.2,
+  normal: 1.0,
+  dificil: 0.8,
+};
+
+// Mora (late fees) — escalates per consecutive missed week, splits across group
+export const MORA_BASE = 60;
+export const MORA_GROWTH = 30;
+
+// Scoring — points awarded in real-time
+export const SCORE_FULL = 100;
+export const SCORE_PARTIAL = 20;
+export const SCORE_NONE = -40;
+export const SCORE_SOLIDARIO = 30;
+export const SCORE_GROUP_PASSED = 60;
+export const SCORE_GROUP_FAILED = -20;
+export const SCORE_INVESTMENT = 25;
+export const SCORE_FAMILY = 20;
+
+// Loan multiplier on group bonus only — rewards surviving harder situations
+export const LOAN_GROUP_MULT: Record<LoanSize, number> = {
+  small: 1.0,
+  medium: 1.15,
+  large: 1.3,
+};
+
+/** Calculate effective income with modifier */
+export function calcEffectiveIncome(income: number, modifierPct: number): number {
+  return Math.max(0, Math.round(income * (100 + modifierPct) / 100));
+}

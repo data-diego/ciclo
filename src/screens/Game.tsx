@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import type { BusinessType } from "../game/types";
-import { BUSINESS_INFO, LOAN_INFO } from "../game/types";
+import { BUSINESS_INFO, LOAN_INFO, SOLIDARIO_MIN, SOLIDARIO_MAX, SOLIDARIO_STEP, SOLIDARIO_DEFAULT } from "../game/types";
 import { useTimeOfDay } from "../game/useTimeOfDay";
-import { usePromoterMessages } from "../game/usePromoterMessages";
+import { useBotMessages } from "../game/useBotMessages";
 import { Android } from "../components/Android";
 import {
   WAStatusBar,
@@ -15,7 +15,6 @@ import {
   WAInputBar,
   WAToast,
 } from "../components/WhatsApp";
-import { WAGameStatus } from "../components/WAGameStatus";
 import { StickerPicker, StickerBubble } from "../components/StickerPicker";
 import { AppDock } from "../components/AppDock";
 import { GrupaliaApp } from "../components/GrupaliaApp";
@@ -82,30 +81,15 @@ function useToast(duration = 3000) {
   return { ...state, show };
 }
 
-// --- Phase timer hook (uses SpacetimeDB game state) ---
+// --- Ready state helpers ---
 
-function usePhaseTimer(
-  game: GameT,
-  conn: DbConnection,
-  isCreator: boolean
-) {
-  const [timeLeft, setTimeLeft] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const remaining = Math.max(0, Number(game.phaseEndsAt) - Date.now());
-      setTimeLeft(remaining);
-
-      if (remaining <= 0 && isCreator) {
-        conn.reducers.advancePhase({});
-      }
-    }, 200);
-
-    return () => clearInterval(interval);
-  }, [game.phaseEndsAt, game.phase, isCreator, conn]);
-
-  const secondsLeft = Math.ceil(timeLeft / 1000);
-  return { secondsLeft, isUrgent: secondsLeft <= 10 };
+function getReadySet(readyJson: string): Set<string> {
+  try {
+    const arr = JSON.parse(readyJson);
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch {
+    return new Set();
+  }
 }
 
 // --- Main component (app switcher) ---
@@ -126,33 +110,50 @@ export function Game({
   const localPlayer = players.find((p) => p.identity.toHexString() === myHex);
 
   const isCreator = game.creator.toHexString() === myHex;
-  const { secondsLeft, isUrgent } = usePhaseTimer(game, conn, isCreator);
-  const timeOfDay = useTimeOfDay(game.phase, secondsLeft);
+  useTimeOfDay(game.subPhase); // kept for future background tints
 
-  // Promoter messages (computed at top level to track notifications)
+  // Ready state
+  const readySet = getReadySet(game.readyPlayers);
+  const readyCount = readySet.size;
+  const isReady = readySet.has(myHex);
+
+  // Bot messages (promotora + presidenta)
   const weekPayments = payments.filter((p) => p.week === game.currentWeek);
-  const totalPaidThisWeek = weekPayments.reduce((sum, p) => sum + p.amount, 0);
-  const promoterMessages = usePromoterMessages(
-    game.phase,
-    secondsLeft,
-    weekPayments.length,
+  const weekPaidTotal = weekPayments.reduce((sum, p) => sum + p.amount, 0);
+  const solidarioReqs = chatMessages.filter(
+    (m) => m.kind === "solidario_request" && m.week === game.currentWeek
+  );
+  const lastWeekPassed = game.currentWeek > 1
+    ? weekPayments.length > 0 ? null : null // will be derived from weekResults if available
+    : null;
+
+  const botMessages = useBotMessages(
+    game.subPhase,
+    game.currentWeek,
     players.length,
-    game.targetPayment,
-    totalPaidThisWeek,
+    readyCount,
     game.totalMora,
+    game.targetPayment,
+    weekPaidTotal,
+    weekPayments.length,
+    solidarioReqs.length > 0,
+    solidarioReqs[0]?.senderName || "",
+    lastWeekPassed,
   );
 
-  // Persist promoter messages to DB — only the creator sends them, one at a time
-  const sentPromoterRef = useRef<Set<string>>(new Set());
-  const lastPromoterMsg = promoterMessages.length > 0 ? promoterMessages[promoterMessages.length - 1] : null;
+  // Creator sends bot messages to DB (dedup by id)
+  const sentBotRef = useRef<Set<string>>(new Set());
   useEffect(() => {
-    if (game.phase !== "action" || !isCreator || !lastPromoterMsg) return;
-    const key = `w${game.currentWeek}-${lastPromoterMsg.id}`;
-    if (!sentPromoterRef.current.has(key)) {
-      sentPromoterRef.current.add(key);
-      conn.reducers.sendChatMessage({ content: lastPromoterMsg.text, kind: "promoter" });
+    if (!isCreator) return;
+    for (const msg of botMessages) {
+      if (!sentBotRef.current.has(msg.id)) {
+        sentBotRef.current.add(msg.id);
+        try {
+          conn.reducers.sendChatMessage({ content: msg.text, kind: msg.kind });
+        } catch { /* ignore */ }
+      }
     }
-  }, [lastPromoterMsg?.id, game.phase, game.currentWeek, isCreator]);
+  }, [botMessages, isCreator, conn]);
 
   // App switching state
   const [activeApp, setActiveApp] = useState<"whatsapp" | "grupalia">("whatsapp");
@@ -160,12 +161,10 @@ export function Game({
 
   // Notification tracking
   const [seenMsgCount, setSeenMsgCount] = useState(chatMessages.length);
-  const [seenPromoterCount, setSeenPromoterCount] = useState(0);
   const [buzzApp, setBuzzApp] = useState<string | null>(null);
   const notifSoundRef = useRef<HTMLAudioElement | null>(null);
   const grupaliaNotifRef = useRef<HTMLAudioElement | null>(null);
 
-  // Initialize notification sounds
   useEffect(() => {
     notifSoundRef.current = new Audio("/1.mp3");
     notifSoundRef.current.volume = 0.5;
@@ -173,7 +172,7 @@ export function Game({
     grupaliaNotifRef.current.volume = 0.5;
   }, []);
 
-  // When new chat messages arrive while not in WhatsApp, buzz + play sound
+  // Chat notification buzz
   useEffect(() => {
     if (chatMessages.length > seenMsgCount && activeApp !== "whatsapp") {
       if (soundOn) notifSoundRef.current?.play().catch(() => {});
@@ -183,39 +182,23 @@ export function Game({
     }
   }, [chatMessages.length, seenMsgCount, activeApp, soundOn]);
 
-  // When new promoter messages appear while not in WhatsApp, buzz + play sound
   useEffect(() => {
-    if (promoterMessages.length > seenPromoterCount && activeApp !== "whatsapp") {
-      if (soundOn) notifSoundRef.current?.play().catch(() => {});
-      setBuzzApp("whatsapp");
-      const timer = setTimeout(() => setBuzzApp(null), 700);
-      return () => clearTimeout(timer);
-    }
-  }, [promoterMessages.length, seenPromoterCount, activeApp, soundOn]);
+    if (activeApp === "whatsapp") setSeenMsgCount(chatMessages.length);
+  }, [activeApp, chatMessages.length]);
 
-  // When entering WhatsApp, mark all messages as seen
-  useEffect(() => {
-    if (activeApp === "whatsapp") {
-      setSeenMsgCount(chatMessages.length);
-      setSeenPromoterCount(promoterMessages.length);
-    }
-  }, [activeApp, chatMessages.length, promoterMessages.length]);
-
-  // Grupalia notification on phase change
+  // Phase change notification
   const prevPhaseKeyRef = useRef<string>("");
   useEffect(() => {
-    const phaseKey = `${game.currentWeek}-${game.phase}`;
+    const phaseKey = `${game.currentWeek}-${game.subPhase}`;
     if (prevPhaseKeyRef.current && prevPhaseKeyRef.current !== phaseKey) {
       if (soundOn) grupaliaNotifRef.current?.play().catch(() => {});
       setBuzzApp("grupalia");
       setTimeout(() => setBuzzApp(null), 700);
     }
     prevPhaseKeyRef.current = phaseKey;
-  }, [game.currentWeek, game.phase, soundOn]);
+  }, [game.currentWeek, game.subPhase, soundOn]);
 
-  const unreadChat = chatMessages.length - seenMsgCount;
-  const unreadPromoter = promoterMessages.length - seenPromoterCount;
-  const unreadCount = activeApp === "whatsapp" ? 0 : Math.max(0, unreadChat + unreadPromoter);
+  const unreadCount = activeApp === "whatsapp" ? 0 : Math.max(0, chatMessages.length - seenMsgCount);
 
   if (!localPlayer) return null;
 
@@ -256,27 +239,30 @@ export function Game({
     />
   );
 
+  const handleMarkReady = () => {
+    try { conn.reducers.markReady({}); } catch { /* ignore */ }
+  };
+
+  const handleForceAdvance = () => {
+    try { conn.reducers.forceAdvance({}); } catch { /* ignore */ }
+  };
+
   return (
     <>
       {portalTarget && createPortal(dock, portalTarget)}
 
-      <div className="flex items-center justify-center flex-1 min-h-0 pt-1 pb-2 md:pt-3 md:pb-6 overflow-x-auto">
+      <div className="flex flex-col items-center flex-1 min-h-0 pt-1 pb-2 md:pt-3 md:pb-6 overflow-x-auto">
 
-      <div className="shrink-0 h-full">
-      <Android className="drop-shadow-2xl">
+      <div className="shrink-0 flex-1 min-h-0">
+      <Android className="drop-shadow-2xl h-full">
         {activeApp === "whatsapp" && (
           <WhatsAppChat
             conn={conn}
             identity={identity}
             game={game}
             players={players}
-            payments={payments}
             chatMessages={chatMessages}
             customStickers={customStickers}
-            secondsLeft={secondsLeft}
-            isUrgent={isUrgent}
-            timeOfDay={timeOfDay}
-            promoterMessages={promoterMessages}
             onBack={() => setActiveApp("grupalia")}
           />
         )}
@@ -292,14 +278,88 @@ export function Game({
             solidarioTransfers={solidarioTransfers}
             secretObjectives={secretObjectives}
             chatMessages={chatMessages}
-            secondsLeft={secondsLeft}
-            timeOfDay={timeOfDay}
             onBack={() => setActiveApp("whatsapp")}
+            readyCount={readyCount}
+            totalPlayers={players.length}
+            isReady={isReady}
+            isCreator={isCreator}
+            onMarkReady={handleMarkReady}
+            onForceAdvance={handleForceAdvance}
           />
         )}
       </Android>
       </div>
     </div>
+    </>
+  );
+}
+
+// --- Solidario Request Bar (modal with amount picker) ---
+
+function SolidarioRequestBar({ game, conn }: { game: GameT; conn: DbConnection }) {
+  const [showModal, setShowModal] = useState(false);
+  const [amount, setAmount] = useState(SOLIDARIO_DEFAULT);
+
+  if (game.subPhase !== "platica" && game.subPhase !== "decision") return null;
+
+  const handleSend = () => {
+    try { conn.reducers.requestSolidario({ amount }); } catch { /* ignore */ }
+    setShowModal(false);
+    setAmount(SOLIDARIO_DEFAULT);
+  };
+
+  return (
+    <>
+      <button
+        onClick={() => setShowModal(true)}
+        className="w-full flex items-center justify-center gap-1.5 py-2 text-[12px] font-semibold text-purple-600 bg-purple-50 border-t border-purple-100 hover:bg-purple-100 transition-colors cursor-pointer"
+      >
+        {"\u{1F49C}"} Pedir solidario
+      </button>
+
+      {showModal && (
+        <div
+          className="absolute inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={() => setShowModal(false)}
+        >
+          <div
+            className="bg-white rounded-xl p-5 mx-6 max-w-[260px] w-full shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-[15px] font-semibold text-g-900 mb-1 text-center">{"\u{1F49C}"} Pedir solidario</p>
+            <p className="text-[11px] text-g-500 mb-4 text-center">Todos verán tu solicitud</p>
+
+            <div className="flex items-center justify-center gap-4 mb-4">
+              <button
+                onClick={() => setAmount((a) => Math.max(SOLIDARIO_MIN, a - SOLIDARIO_STEP))}
+                className="w-9 h-9 rounded-full border border-g-200 bg-white text-g-600 font-bold text-[18px] hover:bg-g-50 transition-colors cursor-pointer"
+              >
+                −
+              </button>
+              <p className="text-[24px] font-bold text-purple-700 font-mono">${amount}</p>
+              <button
+                onClick={() => setAmount((a) => Math.min(SOLIDARIO_MAX, a + SOLIDARIO_STEP))}
+                className="w-9 h-9 rounded-full border border-g-200 bg-white text-g-600 font-bold text-[18px] hover:bg-g-50 transition-colors cursor-pointer"
+              >
+                +
+              </button>
+            </div>
+
+            <button
+              onClick={handleSend}
+              className="w-full py-2.5 rounded-lg text-[14px] font-semibold text-white bg-purple-600 hover:bg-purple-700 transition-colors cursor-pointer mb-2"
+            >
+              Pedir ${amount}
+            </button>
+            <button
+              onClick={() => setShowModal(false)}
+              className="w-full py-2 text-[12px] text-g-400 font-medium cursor-pointer"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -311,40 +371,26 @@ function WhatsAppChat({
   identity,
   game,
   players,
-  payments,
   chatMessages,
   customStickers,
-  secondsLeft,
-  isUrgent,
-  timeOfDay,
-  promoterMessages,
   onBack,
 }: {
   conn: DbConnection;
   identity: Identity;
   game: GameT;
   players: readonly Player[];
-  payments: readonly Payment[];
   chatMessages: readonly ChatMessage[];
   customStickers: readonly CustomSticker[];
-  secondsLeft: number;
-  isUrgent: boolean;
-  timeOfDay: ReturnType<typeof useTimeOfDay>;
-  promoterMessages: import("../game/usePromoterMessages").PromoterMessage[];
   onBack: () => void;
 }) {
   const myHex = identity.toHexString();
   const localPlayer = players.find((p) => p.identity.toHexString() === myHex);
 
-  const weekPayments = payments.filter((p) => p.week === game.currentWeek);
-
-  // Chat input state
   const [chatInput, setChatInput] = useState("");
   const [showPicker, setShowPicker] = useState(false);
   const [showGroupInfo, setShowGroupInfo] = useState(false);
   const toast = useToast();
 
-  // Scroll management
   const scrollRef = useRef<HTMLDivElement>(null);
   const chatBodyRef = useRef<HTMLDivElement>(null);
   const isNearBottom = useRef(true);
@@ -353,22 +399,17 @@ function WhatsAppChat({
     const el = chatBodyRef.current;
     if (!el) return;
     const onScroll = () => {
-      isNearBottom.current =
-        el.scrollTop + el.clientHeight >= el.scrollHeight - 60;
+      isNearBottom.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 60;
     };
     el.addEventListener("scroll", onScroll);
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
 
   const scrollToBottom = useCallback(() => {
-    if (isNearBottom.current) {
-      scrollRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
+    if (isNearBottom.current) scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [chatMessages.length, promoterMessages.length, scrollToBottom]);
+  useEffect(() => { scrollToBottom(); }, [chatMessages.length, scrollToBottom]);
 
   const handleSendChat = (text: string) => {
     if (!text.trim()) return;
@@ -396,10 +437,7 @@ function WhatsAppChat({
 
   if (!localPlayer) return null;
 
-  // All messages (including promoter) are now in the DB, just sort by sentAt
   const timeline = [...chatMessages].sort((a, b) => Number(a.sentAt) - Number(b.sentAt));
-
-  const bgClass = `flex-1 overflow-y-auto wa-chat-bg ${timeOfDay.bgClass} px-3 py-2 space-y-1.5`;
 
   return (
     <div className="flex flex-col h-full bg-white text-g-900 relative">
@@ -407,28 +445,14 @@ function WhatsAppChat({
       <WAHeader
         name={`${game.groupName} (${game.code})`}
         avatar={<GrupaliaAvatar />}
-        subtitle={`Semana ${game.currentWeek}/${game.weeksTotal} — ${timeOfDay.dayLabel || "..."}`}
+        subtitle={`${players.length} integrantes`}
         verified
         onBack={onBack}
         onNameClick={() => setShowGroupInfo(true)}
       />
-      <WAGameStatus
-        businessType={localPlayer.businessType as BusinessType | ""}
-        money={localPlayer.money}
-        weeklyPayment={localPlayer.weeklyPayment || 750}
-        paidCount={weekPayments.length}
-        totalPlayers={players.length}
-        secondsLeft={secondsLeft}
-        isUrgent={isUrgent}
-        phase={game.phase}
-        dayLabel={timeOfDay.dayLabel}
-        timeIcon={timeOfDay.timeIcon}
-      />
 
-      <div ref={chatBodyRef} className={bgClass}>
-        {/* All messages from DB, sorted by time */}
+      <div ref={chatBodyRef} className="flex-1 overflow-y-auto wa-chat-bg px-3 py-2 space-y-1.5">
         {timeline.map((msg) => {
-          // Promoter messages
           if (msg.kind === "promoter") {
             return (
               <WAMessageIn key={msg.id.toString()} sender="Promotora" time={formatTime(Number(msg.sentAt))}>
@@ -437,7 +461,14 @@ function WhatsAppChat({
             );
           }
 
-          // Week dividers
+          if (msg.kind === "presidenta") {
+            return (
+              <WAMessageIn key={msg.id.toString()} sender="Presidenta" time={formatTime(Number(msg.sentAt))}>
+                {msg.content}
+              </WAMessageIn>
+            );
+          }
+
           if (msg.kind === "divider") {
             return (
               <WADateDivider
@@ -447,7 +478,6 @@ function WhatsAppChat({
             );
           }
 
-          // System messages (results, rest, action prompts)
           if (msg.kind === "system") {
             return (
               <WASystemMessage key={msg.id.toString()}>
@@ -456,7 +486,16 @@ function WhatsAppChat({
             );
           }
 
-          // Regular chat messages + stickers
+          if (msg.kind === "solidario_request") {
+            return (
+              <div key={msg.id.toString()} className="flex justify-center">
+                <div className="bg-purple-50 border border-purple-200 rounded-lg px-3 py-1.5 text-[12px] text-purple-700 font-medium">
+                  {"\u{1F49C}"} {msg.content}
+                </div>
+              </div>
+            );
+          }
+
           const isMe = msg.senderIdentity.toHexString() === myHex;
           const time = formatTime(Number(msg.sentAt));
           if (isMe) {
@@ -480,7 +519,6 @@ function WhatsAppChat({
         <div ref={scrollRef} />
       </div>
 
-      {/* Sticker picker & input */}
       <div className="relative">
         {showPicker && (
           <StickerPicker
@@ -498,6 +536,12 @@ function WhatsAppChat({
           />
         )}
 
+        {/* Solidario request button during platica/decision */}
+        <SolidarioRequestBar
+          game={game}
+          conn={conn}
+        />
+
         <WAInputBar
           placeholder="Mensaje..."
           value={chatInput}
@@ -510,7 +554,6 @@ function WhatsAppChat({
 
       <WAToast message={toast.message} visible={toast.visible} />
 
-      {/* Group info modal */}
       {showGroupInfo && (
         <div
           className="absolute inset-0 z-50 flex items-center justify-center bg-black/40"
@@ -529,7 +572,7 @@ function WhatsAppChat({
                 const isMe = p.identity.toHexString() === myHex;
                 return (
                   <div key={p.id.toString()} className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-g-50">
-                    <span className="text-lg">{bt?.emoji || "❓"}</span>
+                    <span className="text-lg">{bt?.emoji || "\u2753"}</span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1">
                         <span className="text-[13px] font-medium text-g-900 truncate">{p.name || "..."}</span>

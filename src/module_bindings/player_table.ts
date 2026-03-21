@@ -19,6 +19,10 @@ export default __t.row({
   pronoun: __t.string(),
   loanSize: __t.string().name("loan_size"),
   weeklyPayment: __t.u32().name("weekly_payment"),
+  income: __t.u32(),
   money: __t.i32(),
+  score: __t.i32(),
+  incomeModPct: __t.i32().name("income_mod_pct"),
+  incomeModWeeks: __t.u32().name("income_mod_weeks"),
   online: __t.bool(),
 });

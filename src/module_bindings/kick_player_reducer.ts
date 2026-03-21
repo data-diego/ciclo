@@ -11,6 +11,5 @@ import {
 } from "spacetimedb";
 
 export default {
-  receiverIdentityHex: __t.string(),
-  amount: __t.u32(),
+  playerIdentity: __t.identity(),
 };
