@@ -27,7 +27,7 @@ function IconRow({ icon: Icon, text }: { icon: React.ElementType; text: string }
 const slides: ReactNode[] = [
   // 0 — Title
   (
-    <div className="flex flex-col items-center justify-center h-full text-center gap-6 md:gap-10">
+    <div className="flex flex-col items-center text-center gap-6 md:gap-10">
       <Stagger className="flex flex-col items-center gap-4 md:gap-6">
         <div className="relative">
           <img src="/ciclo.svg" alt="Ciclo" className="h-14 md:h-20" />
@@ -45,7 +45,7 @@ const slides: ReactNode[] = [
 
   // 1 — Contexto (Zoom meeting)
   (
-    <div className="flex flex-col md:flex-row items-center justify-center h-full gap-6 md:gap-12 max-w-5xl mx-auto px-4">
+    <div className="flex flex-col md:flex-row items-center gap-6 md:gap-12 max-w-5xl mx-auto px-4">
       <div className="w-full max-w-[280px] md:max-w-none md:w-[420px] shrink-0 rounded-2xl overflow-hidden shadow-lg border border-g-200">
         <img src="/ss.png" alt="Monthly meeting" className="w-full h-auto" />
       </div>
@@ -67,7 +67,7 @@ const slides: ReactNode[] = [
 
   // 2 — El problema
   (
-    <div className="flex flex-col md:flex-row items-center justify-center h-full gap-6 md:gap-10 max-w-4xl mx-auto px-4">
+    <div className="flex flex-col md:flex-row items-center gap-6 md:gap-10 max-w-4xl mx-auto px-4">
       <div className="w-48 h-64 md:w-72 md:h-96 rounded-2xl overflow-hidden shrink-0">
         <img
           src="https://grupalia.com/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fsubhero-3.3b7c97c4.avif&w=384&q=75"
@@ -94,7 +94,7 @@ const slides: ReactNode[] = [
 
   // 3 — La solución
   (
-    <div className="flex flex-col items-center justify-center h-full text-center gap-6 md:gap-8 max-w-3xl mx-auto px-4">
+    <div className="flex flex-col items-center text-center gap-6 md:gap-8 max-w-3xl mx-auto px-4">
       <Stagger className="flex flex-col items-center gap-4 md:gap-6">
         <div className="relative">
           <img src="/ciclo.svg" alt="Ciclo" className="h-10 md:h-14" />
@@ -118,7 +118,7 @@ const slides: ReactNode[] = [
 
   // 4 — Cómo se juega
   (
-    <div className="flex flex-col items-center justify-center h-full max-w-3xl mx-auto px-4">
+    <div className="flex flex-col items-center max-w-3xl mx-auto px-4">
       <Stagger className="flex flex-col gap-3 md:gap-5 w-full">
         <Badge variant="brand" className="!text-xs md:!text-sm !px-3 md:!px-4 !py-1 md:!py-1.5 self-start mb-1 md:mb-2">Cómo se juega</Badge>
         <IconRow icon={Store} text="Elige tu negocio y el tamaño de tu crédito" />
@@ -134,7 +134,7 @@ const slides: ReactNode[] = [
 
   // 6 — Puntos
   (
-    <div className="flex flex-col items-center justify-center h-full max-w-3xl mx-auto px-4">
+    <div className="flex flex-col items-center max-w-3xl mx-auto px-4">
       <Stagger className="flex flex-col gap-3 md:gap-5 w-full">
         <Badge variant="brand" className="!text-xs md:!text-sm !px-3 md:!px-4 !py-1 md:!py-1.5 self-start mb-1 md:mb-2">Sistema de puntos</Badge>
         <IconRow icon={CreditCard} text="Pago completo: +100 pts · Pago parcial: +20 pts" />
@@ -151,7 +151,7 @@ const slides: ReactNode[] = [
 
   // 6 — Lo hacker
   (
-    <div className="flex flex-col items-center justify-center h-full max-w-3xl mx-auto px-4">
+    <div className="flex flex-col items-center max-w-3xl mx-auto px-4">
       <Stagger className="flex flex-col gap-3 md:gap-5 w-full">
         <div className="flex items-center gap-2 mb-2">
           <Badge variant="brand" className="!text-xs md:!text-sm !px-3 md:!px-4 !py-1 md:!py-1.5">Lo hacker</Badge>
@@ -170,7 +170,7 @@ const slides: ReactNode[] = [
   // 7 — Demo
   (
     <div
-      className="flex flex-col items-center justify-center h-full text-center gap-8 cursor-pointer"
+      className="flex flex-col items-center text-center gap-8 cursor-pointer"
       onClick={() => { window.location.href = "/"; }}
     >
       <Stagger className="flex flex-col items-center gap-6">
@@ -241,12 +241,13 @@ export function Pitch() {
       {/* Slide content */}
       <div
         key={current}
-        className={`flex-1 min-h-0 overflow-y-auto relative z-10 px-4 py-6 md:px-12 md:py-8 ${
+        className={`flex-1 min-h-0 overflow-y-auto relative z-10 px-4 py-6 md:px-12 md:py-8 flex flex-col ${
           direction === 1 ? "animate-slide-in-right" : "animate-slide-in-left"
         }`}
-        style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}
       >
-        {slides[current]}
+        <div className="my-auto w-full">
+          {slides[current]}
+        </div>
       </div>
 
       {/* Bottom bar */}
