@@ -14,11 +14,11 @@ function Stagger({ children, className = "" }: { children: ReactNode; className?
 
 function IconRow({ icon: Icon, text }: { icon: React.ElementType; text: string }) {
   return (
-    <div className="flex items-start gap-4">
-      <div className="w-10 h-10 rounded-xl bg-brand-100 text-brand-600 flex items-center justify-center shrink-0">
-        <Icon size={20} />
+    <div className="flex items-start gap-3 md:gap-4">
+      <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-brand-100 text-brand-600 flex items-center justify-center shrink-0">
+        <Icon className="w-4 h-4 md:w-5 md:h-5" />
       </div>
-      <p className="text-lg text-g-700 leading-snug pt-1.5">{text}</p>
+      <p className="text-base md:text-lg text-g-700 leading-snug pt-1 md:pt-1.5">{text}</p>
     </div>
   );
 }
@@ -27,16 +27,16 @@ function IconRow({ icon: Icon, text }: { icon: React.ElementType; text: string }
 const slides: ReactNode[] = [
   // 0 — Title
   (
-    <div className="flex flex-col items-center justify-center h-full text-center gap-10">
-      <Stagger className="flex flex-col items-center gap-6">
+    <div className="flex flex-col items-center text-center gap-6 md:gap-10">
+      <Stagger className="flex flex-col items-center gap-4 md:gap-6">
         <div className="relative">
-          <img src="/ciclo.svg" alt="Ciclo" className="h-20" />
-          <div className="absolute -top-2 -right-20 flex items-center gap-1.5">
-            <span className="text-g-600 text-sm">by</span>
-            <img src="/logo.svg" alt="Grupalia" className="h-5" />
+          <img src="/ciclo.svg" alt="Ciclo" className="h-14 md:h-20" />
+          <div className="absolute -top-2 -right-16 md:-right-20 flex items-center gap-1 md:gap-1.5">
+            <span className="text-g-600 text-xs md:text-sm">by</span>
+            <img src="/logo.svg" alt="Grupalia" className="h-4 md:h-5" />
           </div>
         </div>
-        <p className="text-3xl md:text-4xl font-light text-g-800 leading-snug mt-4">
+        <p className="text-2xl md:text-4xl font-light text-g-800 leading-snug mt-4">
           Vive el crédito grupal
         </p>
       </Stagger>
@@ -45,20 +45,20 @@ const slides: ReactNode[] = [
 
   // 1 — Contexto (Zoom meeting)
   (
-    <div className="flex items-center justify-center h-full gap-12 max-w-5xl mx-auto px-4">
-      <div className="w-[420px] shrink-0 rounded-2xl overflow-hidden shadow-lg border border-g-200">
+    <div className="flex flex-col md:flex-row items-center gap-6 md:gap-12 max-w-5xl mx-auto px-4">
+      <div className="w-full max-w-[280px] md:max-w-none md:w-[420px] shrink-0 rounded-2xl overflow-hidden shadow-lg border border-g-200">
         <img src="/ss.png" alt="Monthly meeting" className="w-full h-auto" />
       </div>
-      <Stagger className="flex flex-col gap-6 flex-1">
-        <Badge variant="neutral" className="!text-sm !px-4 !py-1.5 self-start">
+      <Stagger className="flex flex-col gap-4 md:gap-6 flex-1">
+        <Badge variant="neutral" className="!text-xs md:!text-sm !px-3 md:!px-4 !py-1 md:!py-1.5 self-start">
           <Video size={14} className="mr-1.5" /> Contexto
         </Badge>
-        <p className="text-3xl font-light text-g-800 leading-snug">
+        <p className="text-2xl md:text-3xl font-light text-g-800 leading-snug">
           Termina la monthly.
           <br />
           <span className="text-g-400">Todos cierran Meet.</span>
         </p>
-        <p className="text-xl font-medium text-brand-600">
+        <p className="text-lg md:text-xl font-medium text-brand-600">
           ¿Y si antes de irnos, jugamos?
         </p>
       </Stagger>
@@ -67,23 +67,23 @@ const slides: ReactNode[] = [
 
   // 2 — El problema
   (
-    <div className="flex items-center justify-center h-full gap-10 max-w-4xl mx-auto px-4">
-      <div className="w-72 h-96 rounded-2xl overflow-hidden shrink-0">
+    <div className="flex flex-col md:flex-row items-center gap-6 md:gap-10 max-w-4xl mx-auto px-4">
+      <div className="w-48 h-64 md:w-72 md:h-96 rounded-2xl overflow-hidden shrink-0">
         <img
           src="https://grupalia.com/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Fsubhero-3.3b7c97c4.avif&w=384&q=75"
           alt="" className="w-full h-full object-cover brightness-75"
         />
       </div>
-      <Stagger className="flex flex-col gap-6 flex-1">
-        <Badge variant="brand" className="!text-sm !px-4 !py-1.5 self-start">Propuesta</Badge>
-        <blockquote className="text-3xl font-light text-g-800 leading-snug border-l-4 border-brand-500 pl-6">
+      <Stagger className="flex flex-col gap-4 md:gap-6 flex-1">
+        <Badge variant="brand" className="!text-xs md:!text-sm !px-3 md:!px-4 !py-1 md:!py-1.5 self-start">Propuesta</Badge>
+        <blockquote className="text-xl md:text-3xl font-light text-g-800 leading-snug border-l-4 border-brand-500 pl-4 md:pl-6">
           "Todos construimos el producto,
           <br />
           pero <span className="text-brand-600 font-medium">nadie ha sentido</span> lo que es
           <br />
           estar del otro lado."
         </blockquote>
-        <p className="text-lg text-g-600 leading-relaxed max-w-md">
+        <p className="text-base md:text-lg text-g-600 leading-relaxed max-w-md">
           Nunca hemos vivido la presión de un pago semanal,
           la frustración de cubrir a alguien más,
           o la soledad de ser la que cobra.
@@ -94,21 +94,21 @@ const slides: ReactNode[] = [
 
   // 3 — La solución
   (
-    <div className="flex flex-col items-center justify-center h-full text-center gap-8 max-w-3xl mx-auto px-4">
-      <Stagger className="flex flex-col items-center gap-6">
+    <div className="flex flex-col items-center text-center gap-6 md:gap-8 max-w-3xl mx-auto px-4">
+      <Stagger className="flex flex-col items-center gap-4 md:gap-6">
         <div className="relative">
-          <img src="/ciclo.svg" alt="Ciclo" className="h-14" />
-          <div className="absolute -top-2 -right-20 flex items-center gap-1.5">
-            <span className="text-g-600 text-sm">by</span>
-            <img src="/logo.svg" alt="Grupalia" className="h-5" />
+          <img src="/ciclo.svg" alt="Ciclo" className="h-10 md:h-14" />
+          <div className="absolute -top-2 -right-16 md:-right-20 flex items-center gap-1 md:gap-1.5">
+            <span className="text-g-600 text-xs md:text-sm">by</span>
+            <img src="/logo.svg" alt="Grupalia" className="h-4 md:h-5" />
           </div>
         </div>
-        <p className="text-3xl md:text-4xl font-light text-g-800 leading-snug">
+        <p className="text-2xl md:text-4xl font-light text-g-800 leading-snug">
           Un juego multijugador donde
           <br />
           <span className="text-brand-600 font-medium">tú eres la clienta</span>
         </p>
-        <p className="text-lg text-g-500 max-w-lg leading-relaxed">
+        <p className="text-base md:text-lg text-g-500 max-w-lg leading-relaxed">
           Escoge tu negocito, pide tu crédito y sobrevive el ciclo
           de pagos semanales junto a tu grupo.
         </p>
@@ -118,9 +118,9 @@ const slides: ReactNode[] = [
 
   // 4 — Cómo se juega
   (
-    <div className="flex flex-col items-center justify-center h-full max-w-3xl mx-auto px-4">
-      <Stagger className="flex flex-col gap-5 w-full">
-        <Badge variant="brand" className="!text-sm !px-4 !py-1.5 self-start mb-2">Cómo se juega</Badge>
+    <div className="flex flex-col items-center max-w-3xl mx-auto px-4">
+      <Stagger className="flex flex-col gap-3 md:gap-5 w-full">
+        <Badge variant="brand" className="!text-xs md:!text-sm !px-3 md:!px-4 !py-1 md:!py-1.5 self-start mb-1 md:mb-2">Cómo se juega</Badge>
         <IconRow icon={Store} text="Elige tu negocio y el tamaño de tu crédito" />
         <IconRow icon={CreditCard} text="Cada semana decides: ¿pago completo, parcial, o nada?" />
         <IconRow icon={CalendarClock} text="Eventos de negocio cambian tus ingresos semana a semana" />
@@ -134,9 +134,9 @@ const slides: ReactNode[] = [
 
   // 6 — Puntos
   (
-    <div className="flex flex-col items-center justify-center h-full max-w-3xl mx-auto px-4">
-      <Stagger className="flex flex-col gap-5 w-full">
-        <Badge variant="brand" className="!text-sm !px-4 !py-1.5 self-start mb-2">Sistema de puntos</Badge>
+    <div className="flex flex-col items-center max-w-3xl mx-auto px-4">
+      <Stagger className="flex flex-col gap-3 md:gap-5 w-full">
+        <Badge variant="brand" className="!text-xs md:!text-sm !px-3 md:!px-4 !py-1 md:!py-1.5 self-start mb-1 md:mb-2">Sistema de puntos</Badge>
         <IconRow icon={CreditCard} text="Pago completo: +100 pts · Pago parcial: +20 pts" />
         <IconRow icon={Heart} text="Enviar solidario: +20 a +30 pts" />
         <IconRow icon={Trophy} text="Que tu grupo pase la semana: +40 a +60 pts" />
@@ -151,10 +151,10 @@ const slides: ReactNode[] = [
 
   // 6 — Lo hacker
   (
-    <div className="flex flex-col items-center justify-center h-full max-w-3xl mx-auto px-4">
-      <Stagger className="flex flex-col gap-5 w-full">
+    <div className="flex flex-col items-center max-w-3xl mx-auto px-4">
+      <Stagger className="flex flex-col gap-3 md:gap-5 w-full">
         <div className="flex items-center gap-2 mb-2">
-          <Badge variant="brand" className="!text-sm !px-4 !py-1.5">Lo hacker</Badge>
+          <Badge variant="brand" className="!text-xs md:!text-sm !px-3 md:!px-4 !py-1 md:!py-1.5">Lo hacker</Badge>
           <img src="/matrixparrot.gif" alt="" className="h-8" />
         </div>
         <IconRow icon={Database} text="SpacetimeDB v2: 10 tablas sincronizadas en tiempo real" />
@@ -170,17 +170,17 @@ const slides: ReactNode[] = [
   // 7 — Demo
   (
     <div
-      className="flex flex-col items-center justify-center h-full text-center gap-8 cursor-pointer"
+      className="flex flex-col items-center text-center gap-8 cursor-pointer"
       onClick={() => { window.location.href = "/"; }}
     >
       <Stagger className="flex flex-col items-center gap-6">
-        <div className="w-20 h-20 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center">
-          <Play size={36} className="ml-1" />
+        <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center">
+          <Play className="w-7 h-7 md:w-9 md:h-9 ml-1" />
         </div>
-        <p className="text-4xl md:text-5xl font-light text-g-900 tracking-tight">
+        <p className="text-3xl md:text-5xl font-light text-g-900 tracking-tight">
           Demo en vivo
         </p>
-        <p className="text-xl text-g-400">
+        <p className="text-lg md:text-xl text-g-400">
           ciclo.datadiego.com
         </p>
       </Stagger>
@@ -241,16 +241,17 @@ export function Pitch() {
       {/* Slide content */}
       <div
         key={current}
-        className={`flex-1 min-h-0 overflow-y-auto relative z-10 ${
+        className={`flex-1 min-h-0 overflow-y-auto relative z-10 px-4 py-6 md:px-12 md:py-8 flex flex-col ${
           direction === 1 ? "animate-slide-in-right" : "animate-slide-in-left"
         }`}
-        style={{ display: "flex", flexDirection: "column", justifyContent: "center", padding: "2rem 3rem" }}
       >
-        {slides[current]}
+        <div className="my-auto w-full">
+          {slides[current]}
+        </div>
       </div>
 
       {/* Bottom bar */}
-      <div className="flex items-center justify-between px-8 py-3 relative z-10">
+      <div className="flex items-center justify-between px-4 md:px-8 py-3 relative z-10">
         <button
           onClick={() => go(-1)}
           disabled={current === 0}
