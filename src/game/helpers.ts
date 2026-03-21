@@ -19,7 +19,7 @@ export const GROUP_NAMES = [
   "Los cachorros \u{1F436}",
   "El trigal \u{1F33E}",
   "El ranchito \u{1F335}",
-  "Maleficas \u{1F9D9}",
+  "Maléficas \u{1F9D9}",
   "La isla \u{1F3DD}\u{FE0F}",
 ];
 
@@ -29,4 +29,10 @@ export function generateGroupName(): string {
 
 export function generateCode(): string {
   return String(10000 + Math.floor(Math.random() * 90000));
+}
+
+/** Extract the trailing emoji(s) from a group name like "Las poderosas 💪" */
+export function extractEmoji(groupName: string): string {
+  const match = groupName.match(/(\p{Emoji_Presentation}[\u{FE0F}\u{200D}\p{Emoji_Presentation}]*\s*)$/u);
+  return match ? match[1].trim() : "👥";
 }

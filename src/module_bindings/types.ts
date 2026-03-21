@@ -10,6 +10,17 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
+export const BusinessEvent = __t.object("BusinessEvent", {
+  id: __t.u64(),
+  gameCode: __t.string(),
+  playerIdentity: __t.identity(),
+  week: __t.u32(),
+  eventKey: __t.string(),
+  moneyDelta: __t.i32(),
+  message: __t.string(),
+});
+export type BusinessEvent = __Infer<typeof BusinessEvent>;
+
 export const ChatMessage = __t.object("ChatMessage", {
   id: __t.u64(),
   gameCode: __t.string(),
@@ -71,11 +82,34 @@ export const Player = __t.object("Player", {
   gameCode: __t.string(),
   name: __t.string(),
   businessType: __t.string(),
-  role: __t.string(),
+  pronoun: __t.string(),
+  loanSize: __t.string(),
+  weeklyPayment: __t.u32(),
   money: __t.i32(),
   online: __t.bool(),
 });
 export type Player = __Infer<typeof Player>;
+
+export const SecretObjective = __t.object("SecretObjective", {
+  id: __t.u64(),
+  gameCode: __t.string(),
+  playerIdentity: __t.identity(),
+  objectiveKey: __t.string(),
+  description: __t.string(),
+  completed: __t.bool(),
+  bonusMoney: __t.i32(),
+});
+export type SecretObjective = __Infer<typeof SecretObjective>;
+
+export const SolidarioTransfer = __t.object("SolidarioTransfer", {
+  id: __t.u64(),
+  gameCode: __t.string(),
+  senderIdentity: __t.identity(),
+  receiverIdentity: __t.identity(),
+  week: __t.u32(),
+  amount: __t.u32(),
+});
+export type SolidarioTransfer = __Infer<typeof SolidarioTransfer>;
 
 export const WeekResult = __t.object("WeekResult", {
   id: __t.u64(),

@@ -12,13 +12,9 @@ import {
 
 export default __t.row({
   id: __t.u64().primaryKey(),
-  identity: __t.identity(),
   gameCode: __t.string().name("game_code"),
-  name: __t.string(),
-  businessType: __t.string().name("business_type"),
-  pronoun: __t.string(),
-  loanSize: __t.string().name("loan_size"),
-  weeklyPayment: __t.u32().name("weekly_payment"),
-  money: __t.i32(),
-  online: __t.bool(),
+  senderIdentity: __t.identity().name("sender_identity"),
+  receiverIdentity: __t.identity().name("receiver_identity"),
+  week: __t.u32(),
+  amount: __t.u32(),
 });

@@ -40,26 +40,47 @@ import DeleteStickerReducer from "./delete_sticker_reducer";
 import JoinGameReducer from "./join_game_reducer";
 import MakePaymentReducer from "./make_payment_reducer";
 import PickBusinessTypeReducer from "./pick_business_type_reducer";
+import PickLoanSizeReducer from "./pick_loan_size_reducer";
 import SendChatMessageReducer from "./send_chat_message_reducer";
+import SendSolidarioReducer from "./send_solidario_reducer";
 import SetNameReducer from "./set_name_reducer";
+import SetPronounReducer from "./set_pronoun_reducer";
+import ShareEventReducer from "./share_event_reducer";
 import StartGameReducer from "./start_game_reducer";
 import UploadStickerReducer from "./upload_sticker_reducer";
 
 // Import all procedure arg schemas
 
 // Import all table schema definitions
+import BusinessEventRow from "./business_event_table";
 import ChatMessageRow from "./chat_message_table";
 import CustomStickerRow from "./custom_sticker_table";
 import GameRow from "./game_table";
 import GameEventRow from "./game_event_table";
 import PaymentRow from "./payment_table";
 import PlayerRow from "./player_table";
+import SecretObjectiveRow from "./secret_objective_table";
+import SolidarioTransferRow from "./solidario_transfer_table";
 import WeekResultRow from "./week_result_table";
 
 /** Type-only namespace exports for generated type groups. */
 
 /** The schema information for all tables in this module. This is defined the same was as the tables would have been defined in the server. */
 const tablesSchema = __schema({
+  businessEvent: __table({
+    name: 'business_event',
+    indexes: [
+      { accessor: 'event_game_code', name: 'business_event_game_code_idx_btree', algorithm: 'btree', columns: [
+        'gameCode',
+      ] },
+      { accessor: 'id', name: 'business_event_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'business_event_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, BusinessEventRow),
   chatMessage: __table({
     name: 'chat_message',
     indexes: [
@@ -139,6 +160,34 @@ const tablesSchema = __schema({
       { name: 'player_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, PlayerRow),
+  secretObjective: __table({
+    name: 'secret_objective',
+    indexes: [
+      { accessor: 'objective_game_code', name: 'secret_objective_game_code_idx_btree', algorithm: 'btree', columns: [
+        'gameCode',
+      ] },
+      { accessor: 'id', name: 'secret_objective_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'secret_objective_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, SecretObjectiveRow),
+  solidarioTransfer: __table({
+    name: 'solidario_transfer',
+    indexes: [
+      { accessor: 'solidario_game_code', name: 'solidario_transfer_game_code_idx_btree', algorithm: 'btree', columns: [
+        'gameCode',
+      ] },
+      { accessor: 'id', name: 'solidario_transfer_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'solidario_transfer_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, SolidarioTransferRow),
   weekResult: __table({
     name: 'week_result',
     indexes: [
@@ -160,8 +209,12 @@ const reducersSchema = __reducers(
   __reducerSchema("join_game", JoinGameReducer),
   __reducerSchema("make_payment", MakePaymentReducer),
   __reducerSchema("pick_business_type", PickBusinessTypeReducer),
+  __reducerSchema("pick_loan_size", PickLoanSizeReducer),
   __reducerSchema("send_chat_message", SendChatMessageReducer),
+  __reducerSchema("send_solidario", SendSolidarioReducer),
   __reducerSchema("set_name", SetNameReducer),
+  __reducerSchema("set_pronoun", SetPronounReducer),
+  __reducerSchema("share_event", ShareEventReducer),
   __reducerSchema("start_game", StartGameReducer),
   __reducerSchema("upload_sticker", UploadStickerReducer),
 );

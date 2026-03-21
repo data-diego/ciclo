@@ -40,6 +40,9 @@ function App() {
   const [customStickers] = useTable(tables.customSticker);
   const [payments] = useTable(tables.payment);
   const [weekResults] = useTable(tables.weekResult);
+  const [businessEvents] = useTable(tables.businessEvent);
+  const [solidarioTransfers] = useTable(tables.solidarioTransfer);
+  const [secretObjectives] = useTable(tables.secretObjective);
 
   // Find our game
   const game = gameCode ? games.find((g) => g.code === gameCode) : null;
@@ -50,6 +53,9 @@ function App() {
   const gameWeekResults = weekResults.filter((r) => r.gameCode === gameCode);
   const gameChatMessages = chatMessages.filter((m) => m.gameCode === gameCode);
   const gameCustomStickers = customStickers.filter((s) => s.gameCode === gameCode);
+  const gameBusinessEvents = businessEvents.filter((e) => e.gameCode === gameCode);
+  const gameSolidarioTransfers = solidarioTransfers.filter((t) => t.gameCode === gameCode);
+  const gameSecretObjectives = secretObjectives.filter((o) => o.gameCode === gameCode);
 
   // Loading state
   if (!isActive) {
@@ -81,6 +87,9 @@ function App() {
           weekResults={gameWeekResults}
           chatMessages={gameChatMessages}
           customStickers={gameCustomStickers}
+          businessEvents={gameBusinessEvents}
+          solidarioTransfers={gameSolidarioTransfers}
+          secretObjectives={gameSecretObjectives}
         />
       </PageLayout>
     );
@@ -93,8 +102,8 @@ function App() {
           game={game}
           identity={identity!}
           players={gamePlayers}
-          payments={gamePayments}
           weekResults={gameWeekResults}
+          secretObjectives={gameSecretObjectives}
         />
       </PageLayout>
     );

@@ -1,19 +1,28 @@
 import { useState, useRef, useEffect, useCallback, type ReactNode } from "react";
-import type { BusinessType } from "../game/types";
-import { BUSINESS_INFO } from "../game/types";
+import type { BusinessType, PaymentChoice } from "../game/types";
+import { BUSINESS_INFO, LOAN_INFO, SOLIDARIO_AMOUNT, calcTotalPayback, g } from "../game/types";
+import type { TimeOfDay } from "../game/useTimeOfDay";
+import type { DbConnection } from "../module_bindings";
 import type {
   Game as GameT,
   Player,
   Payment,
-  WeekResult,
+  BusinessEvent,
+  SolidarioTransfer,
+  SecretObjective,
 } from "../module_bindings/types";
 
 interface GrupaliaAppProps {
+  conn: DbConnection;
   game: GameT;
   localPlayer: Player;
   players: readonly Player[];
   payments: readonly Payment[];
-  weekResults: readonly WeekResult[];
+  businessEvents: readonly BusinessEvent[];
+  solidarioTransfers: readonly SolidarioTransfer[];
+  secretObjectives: readonly SecretObjective[];
+  secondsLeft: number;
+  timeOfDay: TimeOfDay;
   onBack: () => void;
 }
 
@@ -24,12 +33,7 @@ function formatTime(): string {
 }
 
 function InitialsAvatar({ name, color }: { name: string; color: string }) {
-  const initials = name
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  const initials = name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
   return (
     <div
       className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-white text-[13px] font-semibold"
@@ -53,7 +57,7 @@ function getAvatarColor(name: string): string {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
-// --- Chat message components (Figma-inspired) ---
+// --- Chat message components ---
 
 function ChatMessageIn({
   sender,
@@ -68,46 +72,14 @@ function ChatMessageIn({
 }) {
   return (
     <div className="flex gap-2.5 items-start pr-8">
-      {avatar || (
-        <InitialsAvatar name={sender} color={getAvatarColor(sender)} />
-      )}
+      {avatar || <InitialsAvatar name={sender} color={getAvatarColor(sender)} />}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-[13px] font-medium text-g-700 truncate">
-            {sender}
-          </span>
-          <span className="text-[11px] text-g-500 shrink-0">
-            {time || formatTime()}
-          </span>
+          <span className="text-[13px] font-medium text-g-700 truncate">{sender}</span>
+          <span className="text-[11px] text-g-500 shrink-0">{time || formatTime()}</span>
         </div>
         <div className="bg-[#F8FAFC] border border-[#E3E8EF] rounded-br-lg rounded-bl-lg rounded-tr-lg px-3 py-2">
-          <div className="text-[14px] text-g-900 leading-relaxed">
-            {children}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ChatMessageOut({
-  time,
-  children,
-}: {
-  time?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="flex justify-end pl-8">
-      <div className="max-w-[80%]">
-        <div className="flex items-center gap-2 mb-1 justify-end">
-          <span className="text-[13px] font-medium text-g-700">Tu</span>
-          <span className="text-[11px] text-g-500">{time || formatTime()}</span>
-        </div>
-        <div className="bg-white border border-[#E3E8EF] rounded-bl-lg rounded-br-lg rounded-tl-lg px-3 py-2">
-          <div className="text-[14px] text-g-900 leading-relaxed">
-            {children}
-          </div>
+          <div className="text-[14px] text-g-900 leading-relaxed">{children}</div>
         </div>
       </div>
     </div>
@@ -124,15 +96,10 @@ function ChatDivider({ text }: { text: string }) {
   );
 }
 
-
-// --- Chat log entry ---
-
 interface ChatEntry {
   id: string;
   node: ReactNode;
 }
-
-// --- Grupalia bot avatar ---
 
 function GrupaliaAvatar() {
   return (
@@ -145,15 +112,22 @@ function GrupaliaAvatar() {
 // --- Main component ---
 
 export function GrupaliaApp({
+  conn,
   game,
   localPlayer,
   players,
   payments,
-  weekResults,
+  businessEvents,
+  solidarioTransfers,
+  secretObjectives,
+  secondsLeft,
+  timeOfDay,
   onBack,
 }: GrupaliaAppProps) {
   const [chatLog, setChatLog] = useState<ChatEntry[]>([]);
+  const [showSolidarioPicker, setShowSolidarioPicker] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const myHex = localPlayer.identity.toHexString();
 
   const scrollToBottom = useCallback(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -165,19 +139,26 @@ export function GrupaliaApp({
     const bt = localPlayer.businessType as BusinessType;
     const info = bt ? BUSINESS_INFO[bt] : null;
 
+    // Welcome
     entries.push({
       id: "welcome",
       node: (
         <ChatMessageIn sender="Grupalia" avatar={<GrupaliaAvatar />}>
-          Hola <strong>{localPlayer.name}</strong>! {info?.emoji} Bienvenida a tu panel de Grupalia.
+          Hola <strong>{localPlayer.name}</strong>! {info?.emoji}{" "}
+          {g(localPlayer.pronoun, "Bienvenido", "Bienvenida", "Bienvenide")} a tu panel de Grupalia.
         </ChatMessageIn>
       ),
     });
 
     // Stats card
     const totalPaid = payments
-      .filter((p) => p.playerIdentity.toHexString() === localPlayer.identity.toHexString())
+      .filter((p) => p.playerIdentity.toHexString() === myHex)
       .reduce((sum, p) => sum + p.amount, 0);
+
+    const wp = localPlayer.weeklyPayment || 750;
+    const lsInfo = LOAN_INFO[localPlayer.loanSize as keyof typeof LOAN_INFO];
+    const credit = lsInfo?.credit || 3500;
+    const totalPayback = calcTotalPayback(credit);
 
     entries.push({
       id: "stats",
@@ -198,6 +179,17 @@ export function GrupaliaApp({
               <p className="text-[10px] text-g-500">Pagado</p>
             </div>
           </div>
+          <div className="mt-2 bg-brand-50 border border-brand-200 rounded-lg px-3 py-2">
+            <p className="text-[13px] font-semibold text-brand-800">
+              {lsInfo?.emoji} Crédito: ${credit.toLocaleString()}
+            </p>
+            <p className="text-[11px] text-brand-600 mt-0.5">
+              Total a pagar: ${totalPayback.toLocaleString()}
+            </p>
+            <p className="text-[11px] font-semibold text-brand-700">
+              ${wp}/sem x {game.weeksTotal}
+            </p>
+          </div>
           {game.totalMora > 0 && (
             <div className="mt-2 bg-red-50 border border-red-200 rounded-lg px-2 py-1.5 text-center">
               <span className="text-[13px] font-semibold text-red-700">
@@ -209,104 +201,134 @@ export function GrupaliaApp({
       ),
     });
 
-    entries.push({
-      id: "week-info",
-      node: (
-        <ChatMessageIn sender="Grupalia" avatar={<GrupaliaAvatar />}>
-          Semana <strong>{game.currentWeek}</strong> de{" "}
-          <strong>{game.weeksTotal}</strong>. Usa los botones de abajo para ver
-          tus pagos o el ranking del grupo.
-        </ChatMessageIn>
-      ),
-    });
+    // Secret objective
+    const myObjective = secretObjectives.find(
+      (o) => o.playerIdentity.toHexString() === myHex
+    );
+    if (myObjective) {
+      entries.push({
+        id: "objective",
+        node: (
+          <ChatMessageIn sender="Grupalia" avatar={<GrupaliaAvatar />}>
+            <p className="font-semibold mb-1">Tu objetivo secreto:</p>
+            <div className="bg-brand-50 border border-brand-200 rounded-lg px-3 py-2">
+              <p className="text-[14px] font-medium text-brand-800">
+                {"\u{1F3AF}"} {myObjective.description}
+              </p>
+              <p className="text-[11px] text-brand-600 mt-1">
+                Bonus: +${myObjective.bonusMoney} si lo completas
+              </p>
+            </div>
+            <p className="text-[11px] text-g-400 mt-1">Solo tú puedes ver esto.</p>
+          </ChatMessageIn>
+        ),
+      });
+    }
+
+    // Week event
+    const weekEvent = businessEvents.find(
+      (e) => e.playerIdentity.toHexString() === myHex && e.week === game.currentWeek
+    );
+    if (weekEvent) {
+      entries.push({
+        id: `event-${game.currentWeek}`,
+        node: (
+          <ChatMessageIn sender="Grupalia" avatar={<GrupaliaAvatar />}>
+            <p className="font-semibold mb-1">Evento de esta semana:</p>
+            <div className={`rounded-lg px-3 py-2 border ${
+              weekEvent.moneyDelta > 0
+                ? "bg-ok-50 border-ok-100"
+                : weekEvent.moneyDelta < 0
+                  ? "bg-red-50 border-red-200"
+                  : "bg-g-50 border-g-200"
+            }`}>
+              <p className="text-[14px]">{weekEvent.message}</p>
+            </div>
+          </ChatMessageIn>
+        ),
+      });
+    }
 
     setChatLog(entries);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [game.currentWeek]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     scrollToBottom();
   }, [chatLog.length, scrollToBottom]);
 
-  // Button handlers that add messages to the chat
-  const handleViewPayments = () => {
-    // append payment view to chat
-    const myHex = localPlayer.identity.toHexString();
+  // --- Action handlers ---
+
+  const handlePayment = (choice: PaymentChoice) => {
+    try {
+      conn.reducers.makePayment({ choice });
+    } catch {
+      // handled by toast in parent
+    }
+
+    const wp = localPlayer.weeklyPayment || 750;
+    const amount = choice === "full" ? wp : choice === "double" ? wp * 2 : choice === "partial" ? Math.floor(wp * 0.5) : 0;
+    const label = choice === "full" ? "Pago completo" : choice === "double" ? "Pago doble" : choice === "partial" ? "Pago parcial" : "No puedo pagar";
 
     setChatLog((prev) => [
       ...prev,
       {
-        id: `req-payments-${Date.now()}`,
-        node: <ChatMessageOut>Ver mis pagos</ChatMessageOut>,
-      },
-      {
-        id: `payments-${Date.now()}`,
+        id: `payment-${Date.now()}`,
         node: (
           <ChatMessageIn sender="Grupalia" avatar={<GrupaliaAvatar />}>
-            <p className="font-semibold mb-2">Calendario de pagos:</p>
-            <div className="space-y-1.5">
-              {Array.from({ length: game.weeksTotal }, (_, i) => {
-                const week = i + 1;
-                const result = weekResults.find((r) => r.week === week);
-                const myPayment = payments.find(
-                  (p) => p.week === week && p.playerIdentity.toHexString() === myHex
-                );
-
-                let status: string;
-                let statusClass: string;
-                if (week === game.currentWeek) {
-                  status = myPayment ? "Pagado" : "En curso";
-                  statusClass = myPayment
-                    ? "bg-ok-50 text-ok-700 border-ok-100"
-                    : "bg-brand-50 text-brand-700 border-brand-200";
-                } else if (result) {
-                  status = result.passed || (myPayment && myPayment.choice !== "none")
-                    ? "Pagado"
-                    : "Atrasado";
-                  statusClass = status === "Pagado"
-                    ? "bg-ok-50 text-ok-700 border-ok-100"
-                    : "bg-red-50 text-red-700 border-red-200";
-                } else {
-                  status = "Pendiente";
-                  statusClass = "bg-g-50 text-g-600 border-g-200";
-                }
-
-                return (
-                  <div
-                    key={week}
-                    className={`
-                      flex items-center justify-between px-2.5 py-1.5 rounded-lg border
-                      ${week === game.currentWeek ? "border-brand-300 bg-brand-50/30" : "border-[#E3E8EF] bg-white"}
-                    `}
-                  >
-                    <span className="text-[13px] font-medium text-g-900">
-                      #{week}
-                      {myPayment ? ` — $${myPayment.amount}` : " — $750"}
-                    </span>
-                    <span
-                      className={`text-[11px] font-medium px-2 py-0.5 rounded-full border ${statusClass}`}
-                    >
-                      {status}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
+            <p className="text-ok-700 font-semibold">{"\u2705"} {label}: ${amount}</p>
+            <p className="text-[12px] text-g-500 mt-1">Nuevo saldo: ${(localPlayer.money - amount).toLocaleString()}</p>
           </ChatMessageIn>
         ),
       },
     ]);
   };
 
-  const handleViewRanking = () => {
-    // append ranking view to chat
-    const sorted = [...players].sort((a, b) => b.money - a.money);
-
+  const handleShareEvent = () => {
+    try {
+      conn.reducers.shareEvent({ week: game.currentWeek });
+    } catch {
+      // ignore
+    }
     setChatLog((prev) => [
       ...prev,
       {
-        id: `req-ranking-${Date.now()}`,
-        node: <ChatMessageOut>Ver ranking</ChatMessageOut>,
+        id: `shared-event-${Date.now()}`,
+        node: (
+          <ChatMessageIn sender="Grupalia" avatar={<GrupaliaAvatar />}>
+            <p className="text-[12px] text-g-500">Evento compartido en WhatsApp</p>
+          </ChatMessageIn>
+        ),
       },
+    ]);
+  };
+
+  const handleSendSolidario = (receiverHex: string) => {
+    try {
+      conn.reducers.sendSolidario({ receiverIdentityHex: receiverHex });
+    } catch {
+      // ignore
+    }
+    const receiver = players.find((p) => p.identity.toHexString() === receiverHex);
+    setChatLog((prev) => [
+      ...prev,
+      {
+        id: `solidario-${Date.now()}`,
+        node: (
+          <ChatMessageIn sender="Grupalia" avatar={<GrupaliaAvatar />}>
+            <p className="text-brand-700 font-semibold">
+              {"\u{1F49C}"} Enviaste ${SOLIDARIO_AMOUNT} a {receiver?.name || "???"}
+            </p>
+          </ChatMessageIn>
+        ),
+      },
+    ]);
+    setShowSolidarioPicker(false);
+  };
+
+  const handleViewRanking = () => {
+    const sorted = [...players].sort((a, b) => b.money - a.money);
+    setChatLog((prev) => [
+      ...prev,
       {
         id: `ranking-${Date.now()}`,
         node: (
@@ -316,30 +338,18 @@ export function GrupaliaApp({
               {sorted.map((p, i) => {
                 const bt = p.businessType as BusinessType;
                 const info = bt ? BUSINESS_INFO[bt] : null;
-                const isMe =
-                  p.identity.toHexString() === localPlayer.identity.toHexString();
-
+                const isMe = p.identity.toHexString() === myHex;
                 return (
                   <div
                     key={p.id.toString()}
-                    className={`
-                      flex items-center justify-between px-2.5 py-1.5 rounded-lg
-                      ${isMe ? "bg-brand-50 border border-brand-200" : "bg-white border border-[#E3E8EF]"}
-                    `}
+                    className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg ${
+                      isMe ? "bg-brand-50 border border-brand-200" : "bg-white border border-[#E3E8EF]"
+                    }`}
                   >
                     <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-bold text-g-400 w-4 text-right font-mono">
-                        {i + 1}
-                      </span>
+                      <span className="text-[11px] font-bold text-g-400 w-4 text-right font-mono">{i + 1}</span>
                       <span className="text-sm">{info?.emoji}</span>
-                      <span className="text-[13px] font-medium text-g-900">
-                        {p.name}
-                        {p.role === "presidenta" && (
-                          <span className="ml-1 text-[10px] bg-brand-600 text-white px-1.5 py-0.5 rounded-full">
-                            P
-                          </span>
-                        )}
-                      </span>
+                      <span className="text-[13px] font-medium text-g-900">{p.name}</span>
                     </div>
                     <span className="font-mono font-bold text-g-900 text-[13px]">
                       ${p.money.toLocaleString()}
@@ -354,164 +364,144 @@ export function GrupaliaApp({
     ]);
   };
 
-  const handleViewMembers = () => {
-    setChatLog((prev) => [
-      ...prev,
-      {
-        id: `req-members-${Date.now()}`,
-        node: <ChatMessageOut>Ver grupo</ChatMessageOut>,
-      },
-      {
-        id: `members-${Date.now()}`,
-        node: (
-          <ChatMessageIn sender="Grupalia" avatar={<GrupaliaAvatar />}>
-            <p className="font-semibold mb-2">
-              {game.groupName} ({game.code})
-            </p>
-            <p className="text-[12px] text-g-500 mb-2">
-              {players.length} integrantes &middot; Semana {game.currentWeek}/
-              {game.weeksTotal}
-            </p>
-            <div className="space-y-1">
-              {players.map((p) => {
-                const bt = p.businessType as BusinessType;
-                const info = bt ? BUSINESS_INFO[bt] : null;
-                const weekPayment = payments.find(
-                  (pay) =>
-                    pay.week === game.currentWeek &&
-                    pay.playerIdentity.toHexString() === p.identity.toHexString()
-                );
-
-                return (
-                  <div
-                    key={p.id.toString()}
-                    className="flex items-center justify-between px-2 py-1 rounded-lg bg-white border border-[#E3E8EF]"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm">{info?.emoji}</span>
-                      <span className="text-[13px] text-g-900">{p.name}</span>
-                    </div>
-                    {p.role === "presidenta" ? (
-                      <span className="text-[10px] bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full font-medium">
-                        Presidenta
-                      </span>
-                    ) : weekPayment ? (
-                      <span className="text-[10px] bg-ok-50 text-ok-700 px-2 py-0.5 rounded-full font-medium">
-                        Pago ${weekPayment.amount}
-                      </span>
-                    ) : (
-                      <span className="text-[10px] text-g-400">Pendiente</span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </ChatMessageIn>
-        ),
-      },
-    ]);
-  };
+  // --- Derived state ---
+  const weekPayments = payments.filter((p) => p.week === game.currentWeek);
+  const hasLocalPaid = weekPayments.some(
+    (p) => p.playerIdentity.toHexString() === myHex
+  );
+  const hasSentSolidario = solidarioTransfers.some(
+    (t) => t.senderIdentity.toHexString() === myHex && t.week === game.currentWeek
+  );
+  const weekEvent = businessEvents.find(
+    (e) => e.playerIdentity.toHexString() === myHex && e.week === game.currentWeek
+  );
+  const wp = localPlayer.weeklyPayment || 750;
 
   return (
     <div className="flex flex-col h-full bg-white">
       {/* Header */}
       <div className="bg-white border-b border-[#E3E8EF] px-4 py-3 flex items-center gap-3">
-        <button
-          onClick={onBack}
-          className="text-g-600 hover:text-g-900 transition-colors"
-        >
+        <button onClick={onBack} className="text-g-600 hover:text-g-900 transition-colors">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M15 18l-6-6 6-6" />
           </svg>
         </button>
-        <div className="w-8 h-8 rounded-full overflow-hidden border border-brand-200 shrink-0">
-          <img src="/icon.png" alt="Grupalia" className="w-full h-full object-cover" />
-        </div>
         <div className="flex-1 min-w-0">
           <p className="text-[15px] font-semibold text-g-900 truncate">
-            Grupalia
+            {game.groupName}
           </p>
           <p className="text-[11px] text-g-500">
-            Semana {game.currentWeek}/{game.weeksTotal}
+            Semana {game.currentWeek}/{game.weeksTotal} — {timeOfDay.timeIcon} {timeOfDay.dayLabel} — {secondsLeft}s
           </p>
         </div>
       </div>
 
       {/* Chat stream */}
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
-        <ChatDivider text="Hoy" />
+        <ChatDivider text={`Semana ${game.currentWeek}`} />
 
         {chatLog.map((entry) => (
           <div key={entry.id}>{entry.node}</div>
         ))}
 
+        {/* Payment UI (only during action phase, not yet paid) */}
+        {game.phase === "action" && !hasLocalPaid && (
+          <ChatMessageIn sender="Grupalia" avatar={<GrupaliaAvatar />}>
+            <p className="font-semibold mb-2">Es hora del pago semanal</p>
+            <p className="text-[12px] text-g-500 mb-3">
+              Tu pago: ${wp} | Saldo: ${localPlayer.money.toLocaleString()}
+              {game.totalMora > 0 && ` | Mora: $${game.totalMora}`}
+            </p>
+            <div className="space-y-1.5">
+              {[
+                { choice: "full" as PaymentChoice, label: "Pago completo", amount: wp, emoji: "\u{1F4B0}" },
+                ...(game.totalMora > 0 && localPlayer.money >= wp * 2
+                  ? [{ choice: "double" as PaymentChoice, label: "Pago doble", amount: wp * 2, emoji: "\u{1F4B0}\u{1F4B0}" }]
+                  : []),
+                { choice: "partial" as PaymentChoice, label: "Pago parcial", amount: Math.floor(wp * 0.5), emoji: "\u{1FAE3}" },
+                { choice: "none" as PaymentChoice, label: "No puedo pagar", amount: 0, emoji: "\u{1F630}" },
+              ].map((opt) => (
+                <button
+                  key={opt.choice}
+                  onClick={opt.amount > localPlayer.money ? undefined : () => handlePayment(opt.choice)}
+                  disabled={opt.amount > localPlayer.money}
+                  className={`
+                    w-full flex items-center justify-between px-3 py-2.5 rounded-lg border text-left text-[13px] font-medium transition-colors
+                    ${opt.amount > localPlayer.money
+                      ? "border-g-200 text-g-300 cursor-not-allowed"
+                      : "border-brand-200 text-g-900 hover:bg-brand-50 active:bg-brand-100"
+                    }
+                  `}
+                >
+                  <span>{opt.emoji} {opt.label}</span>
+                  <span className="font-mono">${opt.amount}</span>
+                </button>
+              ))}
+            </div>
+          </ChatMessageIn>
+        )}
+
+        {/* Solidario + Share event actions (during action phase) */}
+        {game.phase === "action" && (
+          <div className="flex gap-2">
+            {weekEvent && (
+              <button
+                onClick={handleShareEvent}
+                className="flex-1 text-[12px] text-g-600 font-medium px-3 py-2 border border-g-200 rounded-lg hover:bg-g-50 transition-colors"
+              >
+                Compartir evento
+              </button>
+            )}
+            {!hasSentSolidario && localPlayer.money >= SOLIDARIO_AMOUNT && (
+              <button
+                onClick={() => setShowSolidarioPicker(true)}
+                className="flex-1 text-[12px] text-brand-600 font-medium px-3 py-2 border border-brand-200 rounded-lg hover:bg-brand-50 transition-colors"
+              >
+                Solidario ${SOLIDARIO_AMOUNT}
+              </button>
+            )}
+            <button
+              onClick={handleViewRanking}
+              className="flex-1 text-[12px] text-g-600 font-medium px-3 py-2 border border-g-200 rounded-lg hover:bg-g-50 transition-colors"
+            >
+              Ranking
+            </button>
+          </div>
+        )}
+
+        {/* Solidario picker */}
+        {showSolidarioPicker && (
+          <ChatMessageIn sender="Grupalia" avatar={<GrupaliaAvatar />}>
+            <p className="font-semibold mb-2">Enviar solidario ${SOLIDARIO_AMOUNT}</p>
+            <div className="space-y-1.5">
+              {players
+                .filter((p) => p.identity.toHexString() !== myHex)
+                .map((p) => {
+                  const bt = p.businessType as BusinessType;
+                  const info = bt ? BUSINESS_INFO[bt] : null;
+                  return (
+                    <button
+                      key={p.id.toString()}
+                      onClick={() => handleSendSolidario(p.identity.toHexString())}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg border border-g-200 hover:bg-brand-50 transition-colors text-left"
+                    >
+                      <span className="text-lg">{info?.emoji}</span>
+                      <span className="text-[13px] font-medium text-g-900">{p.name}</span>
+                    </button>
+                  );
+                })}
+              <button
+                onClick={() => setShowSolidarioPicker(false)}
+                className="w-full text-[12px] text-g-400 py-1"
+              >
+                Cancelar
+              </button>
+            </div>
+          </ChatMessageIn>
+        )}
+
         <div ref={scrollRef} />
       </div>
-
-      {/* Action buttons (no text input) */}
-      <div className="border-t border-[#E3E8EF] bg-white px-3 py-3">
-        <div className="flex gap-2">
-          <ActionButton
-            onClick={handleViewPayments}
-            icon={
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                <line x1="16" y1="2" x2="16" y2="6" />
-                <line x1="8" y1="2" x2="8" y2="6" />
-                <line x1="3" y1="10" x2="21" y2="10" />
-              </svg>
-            }
-            label="Pagos"
-          />
-          <ActionButton
-            onClick={handleViewRanking}
-            icon={
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-              </svg>
-            }
-            label="Ranking"
-          />
-          <ActionButton
-            onClick={handleViewMembers}
-            icon={
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-              </svg>
-            }
-            label="Grupo"
-          />
-        </div>
-      </div>
     </div>
-  );
-}
-
-function ActionButton({
-  onClick,
-  icon,
-  label,
-}: {
-  onClick: () => void;
-  icon: ReactNode;
-  label: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className="
-        flex-1 flex items-center justify-center gap-1.5
-        bg-white border border-[#CDD5DF] rounded-lg
-        px-3 py-2.5 text-[13px] font-semibold text-g-700
-        hover:bg-g-50 active:bg-g-100 transition-colors
-        shadow-sm
-      "
-    >
-      {icon}
-      {label}
-    </button>
   );
 }

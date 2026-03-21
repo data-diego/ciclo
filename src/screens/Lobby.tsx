@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import type { GameMode, BusinessType } from "../game/types";
-import { BUSINESS_INFO, MODE_INFO } from "../game/types";
+import type { GameMode, BusinessType, LoanSize } from "../game/types";
+import { BUSINESS_INFO, MODE_INFO, LOAN_INFO, TASA_PER_MIL, calcWeeklyPayment, calcTotalPayback, g } from "../game/types";
 import { generateCode, generateGroupName } from "../game/helpers";
 import { Android } from "../components/Android";
 import {
@@ -46,6 +46,13 @@ function GrupaliaAvatar() {
     <img src="/icon.png" alt="Grupalia" className="w-full h-full object-cover" />
   );
 }
+
+function GroupAvatar() {
+  return (
+    <img src="/ciclogo.png" alt="Ciclo" className="w-full h-full object-cover" />
+  );
+}
+
 
 // Hook: toast
 function useToast(duration = 2000) {
@@ -229,9 +236,9 @@ function CreateFlow({
                     : undefined
                 }
               >
-                <p>Hola! Soy tu promotora de <strong>Grupalia</strong>.</p>
+                <p>Hola! Soy tu promotor de <strong>Grupalia</strong>.</p>
                 <p className="mt-1.5">
-                  Estas lista para iniciar un nuevo ciclo de credito grupal?
+                  Estás listo para iniciar un nuevo ciclo de crédito grupal?
                   Junta a tu grupo y empecemos.
                 </p>
               </WAMessageIn>
@@ -240,7 +247,7 @@ function CreateFlow({
             {/* Mode picker */}
             {step === "pick_mode" && (
               <>
-                <WAMessageOut time={formatTime(Date.now())}>Si, quiero crear un grupo!</WAMessageOut>
+                <WAMessageOut time={formatTime(Date.now())}>Sí, quiero crear un grupo!</WAMessageOut>
                 <WAMessageIn
                   time={formatTime(Date.now())}
                   buttons={(
@@ -250,7 +257,7 @@ function CreateFlow({
                     onClick: () => handlePickMode(mode),
                   }))}
                 >
-                  Que tipo de ciclo quieres?
+                  Qué tipo de ciclo quieres?
                 </WAMessageIn>
               </>
             )}
@@ -329,12 +336,12 @@ function JoinFlow({
                 time={formatTime(Date.now())}
                 buttons={[{ label: "Unirme al grupo", onClick: handleJoinGroup }]}
               >
-                <p>Te invitaron a un grupo de credito en <strong>Grupalia</strong>!</p>
+                <p>Te invitaron a un grupo de crédito en <strong>Grupalia</strong>!</p>
                 <div className="mt-2">
                   <WALinkPreview
-                    title={game ? `Unete a ${game.groupName}` : "Unete a un grupo de Grupalia"}
+                    title={game ? `Únete a ${game.groupName}` : "Únete a un grupo de Grupalia"}
                     description={game ? `${MODE_INFO[game.mode as GameMode]?.label} - ${MODE_INFO[game.mode as GameMode]?.weeks} semanas` : "Tap para unirte al ciclo"}
-                    domain="ciclo.grupalia.com"
+                    domain="ciclo.datadiego.com"
                     onClick={handleJoinGroup}
                   />
                 </div>
@@ -381,22 +388,29 @@ function WaitingRoom({
 }) {
   const [nameInput, setNameInput] = useState("");
   const [chatInput, setChatInput] = useState("");
-  const [step, setStep] = useState<"name" | "business" | "ready">("name");
+  const [step, setStep] = useState<"name" | "pronoun" | "business" | "loan" | "ready">("name");
   const actionToast = useToast();
   const [showPicker, setShowPicker] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const promptRef = useRef<HTMLDivElement>(null);
 
   // Track when setup answers happened so they appear chronologically in chat
   const [nameAnsweredAt, setNameAnsweredAt] = useState<number | null>(null);
+  const [pronounAnsweredAt, setPronounAnsweredAt] = useState<number | null>(null);
   const [businessAnsweredAt, setBusinessAnsweredAt] = useState<number | null>(null);
+  const [loanAnsweredAt, setLoanAnsweredAt] = useState<number | null>(null);
 
   // Determine step based on player state
   const currentStep =
-    localPlayer && localPlayer.name && localPlayer.businessType
+    localPlayer && localPlayer.name && localPlayer.pronoun && localPlayer.businessType && localPlayer.loanSize
       ? "ready"
-      : localPlayer && localPlayer.name
-        ? "business"
-        : "name";
+      : localPlayer && localPlayer.name && localPlayer.pronoun && localPlayer.businessType
+        ? "loan"
+        : localPlayer && localPlayer.name && localPlayer.pronoun
+          ? "business"
+          : localPlayer && localPlayer.name
+            ? "pronoun"
+            : "name";
 
   useEffect(() => {
     setStep(currentStep);
@@ -410,13 +424,29 @@ function WaitingRoom({
   }, [localPlayer?.name, nameAnsweredAt]);
 
   useEffect(() => {
+    if (localPlayer?.pronoun && !pronounAnsweredAt) {
+      setPronounAnsweredAt(Date.now());
+    }
+  }, [localPlayer?.pronoun, pronounAnsweredAt]);
+
+  useEffect(() => {
     if (localPlayer?.businessType && !businessAnsweredAt) {
       setBusinessAnsweredAt(Date.now());
     }
   }, [localPlayer?.businessType, businessAnsweredAt]);
 
   useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (localPlayer?.loanSize && !loanAnsweredAt) {
+      setLoanAnsweredAt(Date.now());
+    }
+  }, [localPlayer?.loanSize, loanAnsweredAt]);
+
+  useEffect(() => {
+    if (promptRef.current) {
+      promptRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else {
+      scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [step, players.length, chatMessages.length]);
 
   const shareUrl = `${window.location.origin}?room=${game.code}`;
@@ -459,7 +489,9 @@ function WaitingRoom({
   type TimelineItem =
     | { type: "chat"; msg: ChatMessage; ts: number }
     | { type: "name_qa"; name: string; ts: number }
-    | { type: "business_qa"; name: string; businessType: string; ts: number };
+    | { type: "pronoun_qa"; name: string; pronoun: string; ts: number }
+    | { type: "business_qa"; name: string; businessType: string; ts: number }
+    | { type: "loan_qa"; name: string; loanSize: string; ts: number };
 
   const timeline: TimelineItem[] = [];
 
@@ -472,12 +504,24 @@ function WaitingRoom({
   if (localPlayer?.name && nameAnsweredAt) {
     timeline.push({ type: "name_qa", name: localPlayer.name, ts: nameAnsweredAt });
   }
+  if (localPlayer?.pronoun && pronounAnsweredAt) {
+    const pronounLabel = localPlayer.pronoun === "f" ? "Ella" : localPlayer.pronoun === "m" ? "Él" : "Neutral";
+    timeline.push({ type: "pronoun_qa", name: localPlayer.name, pronoun: pronounLabel, ts: pronounAnsweredAt });
+  }
   if (localPlayer?.businessType && businessAnsweredAt) {
     timeline.push({
       type: "business_qa",
       name: localPlayer.name,
       businessType: localPlayer.businessType,
       ts: businessAnsweredAt,
+    });
+  }
+  if (localPlayer?.loanSize && loanAnsweredAt) {
+    timeline.push({
+      type: "loan_qa",
+      name: localPlayer.name,
+      loanSize: localPlayer.loanSize,
+      ts: loanAnsweredAt,
     });
   }
 
@@ -490,7 +534,7 @@ function WaitingRoom({
           <WAStatusBar />
           <WAHeader
             name={`${game.groupName} (${game.code})`}
-            avatar={<GrupaliaAvatar />}
+            avatar={<GroupAvatar />}
             subtitle={`${players.length} participant${players.length !== 1 ? "s" : ""}`}
             verified
           />
@@ -525,9 +569,9 @@ function WaitingRoom({
               </p>
               <div className="mt-2">
                 <WALinkPreview
-                  title={`Unete a ${game.groupName} (${game.code})`}
+                  title={`Únete a ${game.groupName} (${game.code})`}
                   description={shareUrl}
-                  domain="ciclo.grupalia.com"
+                  domain="ciclo.datadiego.com"
                   color="#25D366"
                   onClick={handleShare}
                 />
@@ -549,9 +593,20 @@ function WaitingRoom({
 
               if (item.type === "name_qa") {
                 return (
-                  <div key={`name-qa-${i}`}>
-                    <WAMessageIn sender="Grupalia" time={time}>Como te llamas?</WAMessageIn>
+                  <div key={`name-qa-${i}`} className="space-y-1.5">
+                    <WAMessageIn sender="Grupalia" time={time}>Cómo te llamas?</WAMessageIn>
                     <WAMessageOut time={time}>{item.name}</WAMessageOut>
+                  </div>
+                );
+              }
+
+              if (item.type === "pronoun_qa") {
+                return (
+                  <div key={`pronoun-qa-${i}`} className="space-y-1.5">
+                    <WAMessageIn sender="Grupalia" time={time}>
+                      {item.name}, cómo te identificas?
+                    </WAMessageIn>
+                    <WAMessageOut time={time}>{item.pronoun}</WAMessageOut>
                   </div>
                 );
               }
@@ -559,12 +614,27 @@ function WaitingRoom({
               if (item.type === "business_qa") {
                 const info = BUSINESS_INFO[item.businessType as BusinessType];
                 return (
-                  <div key={`biz-qa-${i}`}>
+                  <div key={`biz-qa-${i}`} className="space-y-1.5">
                     <WAMessageIn sender="Grupalia" time={time}>
-                      {item.name}, que negocio tienes?
+                      {item.name}, qué negocio tienes?
                     </WAMessageIn>
                     <WAMessageOut time={time}>
                       {info?.emoji} {info?.label}
+                    </WAMessageOut>
+                  </div>
+                );
+              }
+
+              if (item.type === "loan_qa") {
+                const lsInfo = LOAN_INFO[item.loanSize as LoanSize];
+                const weekly = lsInfo ? calcWeeklyPayment(lsInfo.credit, game.weeksTotal) : 0;
+                return (
+                  <div key={`loan-qa-${i}`} className="space-y-1.5">
+                    <WAMessageIn sender="Grupalia" time={time}>
+                      {item.name}, cuánto crédito necesitas?
+                    </WAMessageIn>
+                    <WAMessageOut time={time}>
+                      {lsInfo?.emoji} {lsInfo?.label} ${lsInfo?.credit.toLocaleString()} (${weekly.toLocaleString()}/sem)
                     </WAMessageOut>
                   </div>
                 );
@@ -596,15 +666,42 @@ function WaitingRoom({
             })}
 
             {/* Active prompt — only the current step, pinned at bottom */}
+            <div ref={promptRef} />
             {step === "name" && (
               <WAMessageIn sender="Grupalia" time={formatTime(Date.now())}>
-                Como te llamas? Escribe tu nombre abajo.
+                Cómo te llamas? Escribe tu nombre abajo.
+              </WAMessageIn>
+            )}
+
+            {step === "pronoun" && localPlayer?.name && (
+              <WAMessageIn sender="Grupalia" time={formatTime(Date.now())}>
+                <p className="mb-2">{localPlayer.name}, cómo te identificas?</p>
+                <div className="flex gap-2">
+                  {([
+                    { value: "f", label: "Ella", emoji: "👩" },
+                    { value: "m", label: "Él", emoji: "👨" },
+                    { value: "x", label: "Neutral", emoji: "🧑" },
+                  ] as const).map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => safeCall(() => conn.reducers.setPronoun({ pronoun: opt.value }))}
+                      className="
+                        flex-1 flex flex-col items-center p-2 rounded-md
+                        border border-g-200 hover:border-wa-teal hover:bg-wa-teal/5
+                        transition-all text-center
+                      "
+                    >
+                      <span className="text-lg">{opt.emoji}</span>
+                      <span className="text-[11px] text-g-600 mt-0.5">{opt.label}</span>
+                    </button>
+                  ))}
+                </div>
               </WAMessageIn>
             )}
 
             {step === "business" && localPlayer?.name && (
               <WAMessageIn sender="Grupalia" time={formatTime(Date.now())}>
-                <p className="mb-2">{localPlayer.name}, que negocio tienes?</p>
+                <p className="mb-2">{localPlayer.name}, qué negocio tienes?</p>
                 <div className="grid grid-cols-3 gap-1.5">
                   {(
                     Object.entries(BUSINESS_INFO) as [BusinessType, { emoji: string; label: string }][]
@@ -622,6 +719,48 @@ function WaitingRoom({
                       <span className="text-[10px] text-g-600 mt-0.5">{info.label}</span>
                     </button>
                   ))}
+                </div>
+              </WAMessageIn>
+            )}
+
+            {step === "loan" && localPlayer?.name && (
+              <WAMessageIn sender="Grupalia" time={formatTime(Date.now())}>
+                <p className="mb-2">{localPlayer.name}, cuánto crédito necesitas?</p>
+                <p className="text-[11px] text-g-500 mb-3">Tasa: ${TASA_PER_MIL} pesos por cada mil</p>
+                <div className="space-y-2">
+                  {(
+                    Object.entries(LOAN_INFO) as [LoanSize, { label: string; emoji: string; credit: number }][]
+                  ).map(([size, info]) => {
+                    const total = Math.round(calcTotalPayback(info.credit));
+                    const weekly = calcWeeklyPayment(info.credit, game.weeksTotal);
+                    return (
+                      <button
+                        key={size}
+                        onClick={() => safeCall(() => conn.reducers.pickLoanSize({ loanSize: size }))}
+                        className="
+                          w-full flex items-center gap-3 p-3 rounded-lg
+                          border border-g-200 hover:border-wa-teal hover:bg-wa-teal/5
+                          transition-all text-left
+                        "
+                      >
+                        <span className="text-2xl">{info.emoji}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="text-[14px] font-semibold text-g-900">{info.label}</span>
+                            <span className="text-[16px] font-bold font-mono text-wa-teal">
+                              ${info.credit.toLocaleString()}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-g-500 mt-0.5">
+                            Total a pagar: ${total.toLocaleString()}
+                          </p>
+                          <p className="text-[11px] font-semibold text-g-700">
+                            ${weekly.toLocaleString()}/sem x {game.weeksTotal}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </WAMessageIn>
             )}
@@ -645,16 +784,20 @@ function WaitingRoom({
                 ]}
               >
                 {players.length < 2
-                  ? `Esperando jugadores... (${players.length}/2 minimo)`
+                  ? `Esperando jugadores... (${players.length}/2 mínimo)`
                   : `${players.length} jugadores listos!`}
               </WAMessageIn>
             )}
 
-            {step === "ready" && !isCreator && (
-              <WAMessageIn sender="Grupalia" time={formatTime(Date.now())}>
-                Esperando a que la anfitriona inicie el ciclo...
-              </WAMessageIn>
-            )}
+            {step === "ready" && !isCreator && (() => {
+              const creator = players.find((p) => p.identity.toHexString() === game.creator.toHexString());
+              const cp = creator?.pronoun;
+              return (
+                <WAMessageIn sender="Grupalia" time={formatTime(Date.now())}>
+                  Esperando a que {g(cp, "el anfitrión", "la anfitriona", "le anfitrione")} inicie el ciclo...
+                </WAMessageIn>
+              );
+            })()}
 
             <div ref={scrollRef} />
           </WAChatBody>

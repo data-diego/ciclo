@@ -22,6 +22,17 @@ export function useSound() {
   return useContext(SoundContext);
 }
 
+// --- Header center slot context ---
+
+const HeaderCenterContext = createContext({
+  headerCenter: null as ReactNode,
+  setHeaderCenter: (_node: ReactNode) => {},
+});
+
+export function useHeaderCenter() {
+  return useContext(HeaderCenterContext);
+}
+
 // --- Exit confirmation modal ---
 
 function ExitModal({
@@ -81,6 +92,7 @@ export function PageLayout({ children, showExit, onExit }: PageLayoutProps) {
   const [dark, setDark] = useState(() => localStorage.getItem("ciclo_dark") === "1");
   const [soundOn, setSoundOn] = useState(() => localStorage.getItem("ciclo_sound") !== "0");
   const [exitModalOpen, setExitModalOpen] = useState(false);
+  const [headerCenter, setHeaderCenter] = useState<ReactNode>(null);
 
   const toggle = () => setDark((d) => {
     const next = !d;
@@ -102,8 +114,9 @@ export function PageLayout({ children, showExit, onExit }: PageLayoutProps) {
   return (
     <DarkModeContext.Provider value={{ dark, toggle }}>
     <SoundContext.Provider value={{ soundOn, toggleSound }}>
+    <HeaderCenterContext.Provider value={{ headerCenter, setHeaderCenter }}>
       <div
-        className={`min-h-screen transition-colors duration-300 ${
+        className={`h-dvh flex flex-col transition-colors duration-300 ${
           dark ? "bg-g-950" : "bg-g-50"
         } logo-bg ${dark ? "logo-bg-dark" : ""}`}
       >
@@ -113,6 +126,11 @@ export function PageLayout({ children, showExit, onExit }: PageLayoutProps) {
           <div className="flex items-center gap-2">
             <img src="/ciclogo.png" alt="Ciclo" className="h-7" />
           </div>
+
+          {/* Center: slot for app dock etc */}
+          {headerCenter && (
+            <div className="flex items-center">{headerCenter}</div>
+          )}
 
           {/* Right: actions */}
           <div className="flex items-center gap-2">
@@ -244,7 +262,7 @@ export function PageLayout({ children, showExit, onExit }: PageLayoutProps) {
         </header>
 
         {/* Page content */}
-        <div className="relative z-1">{children}</div>
+        <div className="relative z-1 flex-1 min-h-0">{children}</div>
       </div>
 
       <ExitModal
@@ -252,6 +270,7 @@ export function PageLayout({ children, showExit, onExit }: PageLayoutProps) {
         onClose={() => setExitModalOpen(false)}
         onConfirm={handleExitConfirm}
       />
+    </HeaderCenterContext.Provider>
     </SoundContext.Provider>
     </DarkModeContext.Provider>
   );

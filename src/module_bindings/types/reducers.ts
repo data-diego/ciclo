@@ -12,8 +12,12 @@ import DeleteStickerReducer from "../delete_sticker_reducer";
 import JoinGameReducer from "../join_game_reducer";
 import MakePaymentReducer from "../make_payment_reducer";
 import PickBusinessTypeReducer from "../pick_business_type_reducer";
+import PickLoanSizeReducer from "../pick_loan_size_reducer";
 import SendChatMessageReducer from "../send_chat_message_reducer";
+import SendSolidarioReducer from "../send_solidario_reducer";
 import SetNameReducer from "../set_name_reducer";
+import SetPronounReducer from "../set_pronoun_reducer";
+import ShareEventReducer from "../share_event_reducer";
 import StartGameReducer from "../start_game_reducer";
 import UploadStickerReducer from "../upload_sticker_reducer";
 
@@ -23,8 +27,12 @@ export type DeleteStickerParams = __Infer<typeof DeleteStickerReducer>;
 export type JoinGameParams = __Infer<typeof JoinGameReducer>;
 export type MakePaymentParams = __Infer<typeof MakePaymentReducer>;
 export type PickBusinessTypeParams = __Infer<typeof PickBusinessTypeReducer>;
+export type PickLoanSizeParams = __Infer<typeof PickLoanSizeReducer>;
 export type SendChatMessageParams = __Infer<typeof SendChatMessageReducer>;
+export type SendSolidarioParams = __Infer<typeof SendSolidarioReducer>;
 export type SetNameParams = __Infer<typeof SetNameReducer>;
+export type SetPronounParams = __Infer<typeof SetPronounReducer>;
+export type ShareEventParams = __Infer<typeof ShareEventReducer>;
 export type StartGameParams = __Infer<typeof StartGameReducer>;
 export type UploadStickerParams = __Infer<typeof UploadStickerReducer>;
 

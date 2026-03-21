@@ -18,7 +18,7 @@ interface AppDockProps {
 
 export function AppDock({ apps, buzzAppId }: AppDockProps) {
   return (
-    <div className="flex flex-col items-center gap-7 pt-6 pr-4">
+    <div className="flex items-center justify-center gap-5">
       {apps.map((app) => (
         <AppIconButton
           key={app.id}
@@ -54,7 +54,7 @@ function AppIconButton({
       ref={btnRef}
       onClick={app.onClick}
       className={`
-        flex flex-col items-center gap-2 relative
+        flex flex-col items-center gap-1 relative
         active:scale-90 transition-transform duration-150
         ${isBuzzing ? "animate-buzz" : ""}
       `}
@@ -62,11 +62,11 @@ function AppIconButton({
       {/* Icon */}
       <div
         className={`
-          w-14 h-14 rounded-[16px] overflow-hidden shadow-lg relative
+          w-10 h-10 rounded-[12px] overflow-hidden shadow-md relative
           transition-all duration-200
           ${app.active
-            ? `ring-2 ring-offset-2 scale-110 ${dark ? "ring-offset-g-950" : "ring-offset-white"}`
-            : "opacity-80 hover:opacity-100 hover:scale-105"}
+            ? `ring-2 ring-offset-1 scale-105 ${dark ? "ring-offset-g-950" : "ring-offset-white"}`
+            : "opacity-70 hover:opacity-100 hover:scale-105"}
         `}
         style={app.active ? { "--tw-ring-color": app.ringColor || "#7C3AED" } as React.CSSProperties : undefined}
       >
@@ -75,8 +75,8 @@ function AppIconButton({
 
       {/* Badge */}
       {app.badge != null && app.badge > 0 && (
-        <div className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 rounded-full bg-red-500 flex items-center justify-center shadow-md z-10">
-          <span className="text-white text-[10px] font-bold leading-none">
+        <div className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5 rounded-full bg-red-500 flex items-center justify-center shadow-md z-10">
+          <span className="text-white text-[9px] font-bold leading-none">
             {app.badge > 99 ? "99+" : app.badge}
           </span>
         </div>
@@ -85,7 +85,7 @@ function AppIconButton({
       {/* Label */}
       <span
         className={`
-          text-[11px] font-medium transition-colors
+          text-[10px] font-medium transition-colors
           ${app.active
             ? dark ? "text-g-100" : "text-g-900"
             : dark ? "text-g-400" : "text-g-500"}
