@@ -216,27 +216,41 @@ export function GrupaliaApp({
         </div>
 
         {/* Resultado: advance button */}
-        {game.status !== "finished" && game.subPhase === "resultado" && (
-          <div className="px-3 pb-2 space-y-1">
-            <Button
-              onClick={onMarkReady}
-              size="sm"
-              className="w-full text-[12px] font-semibold bg-brand-600 hover:bg-brand-700 text-white cursor-pointer"
-            >
-              {game.currentWeek >= game.weeksTotal ? "Ver resultados" : "Siguiente semana"}
-            </Button>
-            {isCreator && (
-              <Button
-                onClick={onForceAdvance}
-                variant="ghost"
-                size="sm"
-                className="w-full text-[10px] text-g-400 hover:text-g-600 cursor-pointer"
-              >
-                Avanzar fase
-              </Button>
-            )}
-          </div>
-        )}
+        {game.status !== "finished" && game.subPhase === "resultado" && (() => {
+          let readySet: Set<string>;
+          try {
+            const arr = JSON.parse(game.readyPlayers);
+            readySet = new Set(Array.isArray(arr) ? arr : []);
+          } catch { readySet = new Set(); }
+          const imReady = readySet.has(myHex);
+          return (
+            <div className="px-3 pb-2 space-y-1">
+              {imReady ? (
+                <div className="w-full text-center py-2 text-[12px] text-g-500">
+                  Esperando a los demás ({readySet.size}/{players.length})...
+                </div>
+              ) : (
+                <Button
+                  onClick={onMarkReady}
+                  size="sm"
+                  className="w-full text-[12px] font-semibold bg-brand-600 hover:bg-brand-700 text-white cursor-pointer"
+                >
+                  {game.currentWeek >= game.weeksTotal ? "Ver resultados" : "Siguiente semana"}
+                </Button>
+              )}
+              {isCreator && (
+                <Button
+                  onClick={onForceAdvance}
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-[10px] text-g-400 hover:text-g-600 cursor-pointer"
+                >
+                  Avanzar fase
+                </Button>
+              )}
+            </div>
+          );
+        })()}
         {/* Creator force advance */}
         {game.status !== "finished" && game.subPhase !== "resultado" && isCreator && (
           <div className="px-3 pb-2">
@@ -257,12 +271,12 @@ export function GrupaliaApp({
 
         {/* FINISHED STATE */}
         {game.status === "finished" && <FinishedResults
-          localPlayer={localPlayer}
           players={players}
           weekResults={weekResults}
           secretObjectives={secretObjectives}
           game={game}
           myHex={myHex}
+          onExit={onExit}
         />}
 
         {/* Sub-phase banner */}
@@ -500,14 +514,37 @@ export function GrupaliaApp({
         )}
 
         {/* DECISION PHASE: done state */}
-        {game.subPhase === "decision" && isDecisionDone && (
-          <Card className="bg-ok-50 border-ok-100">
-            <div className="px-4 py-4 text-center">
-              <p className="text-[14px] font-semibold text-ok-700">{"\u2705"} Listo</p>
-              <p className="text-[12px] text-g-500 mt-1">Esperando a que tus compañeras terminen...</p>
-            </div>
-          </Card>
-        )}
+        {game.subPhase === "decision" && isDecisionDone && (() => {
+          let readySet: Set<string>;
+          try {
+            const arr = JSON.parse(game.readyPlayers);
+            readySet = new Set(Array.isArray(arr) ? arr : []);
+          } catch { readySet = new Set(); }
+          const imReady = readySet.has(myHex);
+          return (
+            <Card className="bg-ok-50 border-ok-100">
+              <div className="px-4 py-4 text-center space-y-2">
+                {imReady ? (
+                  <>
+                    <p className="text-[14px] font-semibold text-ok-700">Listo</p>
+                    <p className="text-[12px] text-g-500">Esperando a los demás ({readySet.size}/{players.length})...</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-[14px] font-semibold text-ok-700">Acciones completadas</p>
+                    <Button
+                      onClick={onMarkReady}
+                      size="sm"
+                      className="w-full text-[12px] font-semibold bg-brand-600 hover:bg-brand-700 text-white cursor-pointer"
+                    >
+                      Siguiente semana
+                    </Button>
+                  </>
+                )}
+              </div>
+            </Card>
+          );
+        })()}
         {game.subPhase === "decision" && hasLocalPaid && !isDecisionDone && (
           <Card className="bg-ok-50 border-ok-100">
             <div className="px-4 py-4 text-center">
@@ -761,28 +798,28 @@ export function GrupaliaApp({
 // --- Finished Results Component ---
 
 function FinishedResults({
-  localPlayer,
   players,
   weekResults,
   secretObjectives,
   game,
   myHex,
+  onExit,
 }: {
-  localPlayer: Player;
   players: readonly Player[];
   weekResults: readonly WeekResult[];
   secretObjectives: readonly SecretObjective[];
   game: GameT;
   myHex: string;
+  onExit?: () => void;
 }) {
   const confettiFired = useRef(false);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   const totalWeeks = weekResults.length;
   const weeksPassed = weekResults.filter((r) => r.passed).length;
   const weeksMissed = totalWeeks - weeksPassed;
   const graduationStatus =
     weeksMissed === 0 ? "graduado" : weeksMissed <= 3 ? "no_graduado" : "moroso";
-  const pn = localPlayer.pronoun;
   const graduationConfig = {
     graduado: {
       icon: (
@@ -831,7 +868,7 @@ function FinishedResults({
   useEffect(() => {
     if (confettiFired.current || !isWinnerMe) return;
     confettiFired.current = true;
-    const duration = 2500;
+    const duration = 1200;
     const end = Date.now() + duration;
     const colors = ["#7C3AED", "#B48BFA", "#F7F3FF", "#FFD700", "#12B76A"];
 
@@ -1010,12 +1047,48 @@ function FinishedResults({
       )}
 
       {/* Play again */}
-      <Button
-        onClick={() => window.location.reload()}
-        className="w-full py-3 text-[14px] font-semibold bg-brand-600 hover:bg-brand-700 text-white cursor-pointer"
-      >
-        Jugar de nuevo
-      </Button>
+      {onExit && (
+        <>
+          <Button
+            onClick={() => setShowExitConfirm(true)}
+            className="w-full py-3 text-[14px] font-semibold bg-brand-600 hover:bg-brand-700 text-white cursor-pointer"
+          >
+            Jugar de nuevo
+          </Button>
+
+          {showExitConfirm && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+              onClick={() => setShowExitConfirm(false)}
+            >
+              <div
+                className="bg-white rounded-[var(--radius-card)] p-5 mx-6 max-w-xs w-full shadow-xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <p className="text-[16px] font-semibold text-g-900 mb-1">Salir del grupo</p>
+                <p className="text-[13px] text-g-600 mb-4">
+                  Vas a salir de este grupo y volver al inicio para crear o unirte a otro.
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => setShowExitConfirm(false)}
+                    variant="outline"
+                    className="flex-1 text-[13px] cursor-pointer"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    onClick={onExit}
+                    className="flex-1 text-[13px] bg-brand-600 hover:bg-brand-700 text-white cursor-pointer"
+                  >
+                    Salir
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
     </>
   );
 }
