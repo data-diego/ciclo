@@ -1,4 +1,4 @@
-import { type SVGProps, type ReactNode, useState, useRef, useCallback, useEffect } from "react";
+import { type SVGProps, type ReactNode, useState, useRef, useCallback, useEffect, useSyncExternalStore } from "react";
 
 export interface AndroidProps extends SVGProps<SVGSVGElement> {
   /** Only used for the viewBox aspect ratio — the SVG scales to fit its container */
@@ -11,6 +11,22 @@ export interface AndroidProps extends SVGProps<SVGSVGElement> {
 
 const SHADE_FRACTION = 0.68;
 const SNAP_THRESHOLD_PX = 40;
+const MOBILE_BREAKPOINT = 768;
+
+function getIsMobile() {
+  return typeof window !== "undefined" && window.innerWidth < MOBILE_BREAKPOINT;
+}
+
+function useIsMobile() {
+  return useSyncExternalStore(
+    (cb) => {
+      window.addEventListener("resize", cb);
+      return () => window.removeEventListener("resize", cb);
+    },
+    getIsMobile,
+    () => false,
+  );
+}
 
 export function Android({
   width = 433,
@@ -20,6 +36,7 @@ export function Android({
   children,
   ...props
 }: AndroidProps) {
+  const isMobile = useIsMobile();
   const [shadeY, setShadeY] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [animating, setAnimating] = useState(false);
@@ -95,6 +112,15 @@ export function Android({
     },
     [isOpen, shadeY],
   );
+
+  // On mobile, skip the phone frame — foreignObject in SVG breaks on Chrome iOS (WebKit)
+  if (isMobile) {
+    return (
+      <div className="relative h-full w-full overflow-hidden rounded-2xl bg-wa-teal-dark">
+        {children}
+      </div>
+    );
+  }
 
   return (
     <div ref={wrapperRef} className="relative h-full w-fit max-w-full">
