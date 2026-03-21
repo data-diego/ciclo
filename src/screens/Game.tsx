@@ -138,19 +138,26 @@ export function Game({
     lastWeekPassed,
   );
 
-  // Creator sends bot messages to DB (dedup by id)
+  // Creator sends bot messages to DB (dedup by id, survives reload via DB check)
   const sentBotRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!isCreator) return;
     for (const msg of botMessages) {
-      if (!sentBotRef.current.has(msg.id)) {
+      if (sentBotRef.current.has(msg.id)) continue;
+      // Check if already in DB (survives reload)
+      const alreadySent = chatMessages.some(
+        (m) => m.kind === msg.kind && m.content === msg.text && m.week === game.currentWeek
+      );
+      if (alreadySent) {
         sentBotRef.current.add(msg.id);
-        try {
-          conn.reducers.sendChatMessage({ content: msg.text, kind: msg.kind });
-        } catch { /* ignore */ }
+        continue;
       }
+      sentBotRef.current.add(msg.id);
+      try {
+        conn.reducers.sendChatMessage({ content: msg.text, kind: msg.kind });
+      } catch { /* ignore */ }
     }
-  }, [botMessages, isCreator, conn]);
+  }, [botMessages, isCreator, conn, chatMessages, game.currentWeek]);
 
   // App switching state
   const [activeApp, setActiveApp] = useState<"whatsapp" | "grupalia">("whatsapp");
