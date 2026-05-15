@@ -27,7 +27,7 @@ src/
     types.ts            # Types, LOAN_INFO, TASA_PER_MIL, calcWeeklyPayment, calcTotalPayback
     helpers.ts          # Client-side code/name generators
     useTimeOfDay.ts     # Maps 60s action phase to Lunes→Viernes with visual tints
-    usePromoterMessages.ts  # AI Promotora escalating hints (client-side)
+    useBotMessages.ts   # AI Asesora escalating hints (client-side)
     store.ts            # LEGACY — local React state, unused by main app
     useSpacetimeDB.ts   # Connection builder config
   components/
@@ -80,7 +80,7 @@ pnpm build            # Production build
 ## Design Decisions
 
 ### App Separation (STRICT)
-- **WhatsApp** = PURELY social. Chat, stickers, Promotora bot hints, system messages. NO buttons, NO game mechanics.
+- **WhatsApp** = PURELY social. Chat, stickers, Asesora bot hints, system messages. NO buttons, NO game mechanics.
 - **Grupalia** = ALL game mechanics. Payments, business events, secret objective, solidario, ranking.
 
 ### Three Pillars (Catan-inspired)
@@ -96,7 +96,7 @@ pnpm build            # Production build
 
 ### Other
 - **Symmetric play** — no presidenta, all players equal
-- **Hidden payments** — nobody sees who paid, Promotora gives escalating hints
+- **Hidden payments** — nobody sees who paid, Asesora gives escalating hints
 - **Time of day** — action phase cycles Lunes→Viernes with visual background tints
 - **Spanish language** with proper accents (target: Grupalia Mexico team)
 - **Mobile-first** with Android phone frame
@@ -107,5 +107,5 @@ pnpm build            # Production build
 2. Guests open invite link (`?room=CODE`) → enter name → pick pronoun → pick business → pick loan size
 3. Creator starts cycle → secret objectives assigned, week 1 events generated
 4. Each week: Action (60s, Lunes→Viernes) → Results (15s, Noche) → Rest (15s, Domingo)
-5. During action: pay in Grupalia, chat in WhatsApp, Promotora gives hints, share events, send solidario
+5. During action: pay in Grupalia, chat in WhatsApp, Asesora gives hints, share events, send solidario
 6. Final screen: graduation status + ranking + secret objective reveal

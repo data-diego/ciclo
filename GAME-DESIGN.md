@@ -17,7 +17,7 @@ into the other side of the screen.
 
 **"Reunion de Consolidacion"**
 
-A Grupalia AI promoter has gathered your group to start a credit cycle.
+A Grupalia AI advisor has gathered your group to start a credit cycle.
 One player is randomly assigned as **Presidenta**. Everyone else picks a
 business type. Together, you must survive the cycle by making your weekly
 group payment. If you thrive, you win. If the group defaults... everyone suffers.
@@ -102,7 +102,7 @@ Each week lasts **90 seconds** and has 3 phases:
 ├─ SABADO (15 sec) ─── Results ────────────────────────────┤
 │  Payment check. Did the group hit the target?            │
 │  If not: mora starts/grows. Debt accumulates.            │
-│  AI Promoter sends weekly summary with mora status.      │
+│  AI Advisor sends weekly summary with mora status.      │
 │  Achievements update silently.                           │
 │                                                          │
 ├─ DOMINGO (15 sec) ─── Rest & preview ───────────────────┤
@@ -240,7 +240,7 @@ This affects end-of-game scoring and mirrors real presidenta power.
 ## Events
 
 Events create the randomness. They arrive as WhatsApp messages from the
-AI Promoter and as app notifications.
+AI Advisor and as app notifications.
 
 ### Event types
 
@@ -268,7 +268,7 @@ AI Promoter and as app notifications.
 - "Corte de agua" → all -10% this week
 - "El pueblo salió en las noticias" → all +20% this week
 
-Events are drawn randomly each week (1–2 per week). The AI promoter
+Events are drawn randomly each week (1–2 per week). The AI advisor
 announces them with flavor text in the group chat.
 
 ---
@@ -284,15 +284,15 @@ grow every day past due.
 ```
 Week N: Group misses payment
   → Mora starts: $45
-  → AI Promoter: "Les recuerdo que tienen un atraso de $45..."
+  → AI Advisor: "Les recuerdo que tienen un atraso de $45..."
 
 Week N+1: Still unpaid
   → Mora grows: $45 + $15/dia = $150
-  → AI Promoter: "Ya van 2 semanas. La mora es de $150. ¿Que esta pasando?"
+  → AI Advisor: "Ya van 2 semanas. La mora es de $150. ¿Que esta pasando?"
 
 Week N+2: Still unpaid
   → Mora grows: $285
-  → AI Promoter: "Necesito hacer una visita al grupo."
+  → AI Advisor: "Necesito hacer una visita al grupo."
   → EVENT: "Visita de cobranza" triggers
     → All players get -10% income this week (stress/distraction)
     → Presidenta must answer: "¿Por que no ha pagado el grupo?"
@@ -302,8 +302,8 @@ Week N+2: Still unpaid
 
 | Weeks late | What happens                                          |
 |------------|-------------------------------------------------------|
-| 1          | Friendly reminder from AI Promoter, mora starts       |
-| 2          | Firm message, mora grows, promoter asks presidenta    |
+| 1          | Friendly reminder from AI Advisor, mora starts       |
+| 2          | Firm message, mora grows, advisor asks presidenta    |
 | 3          | "Visita de cobranza" event, -10% income for everyone  |
 | 4+         | Group risks "Moroso" graduation status, no cycle 2    |
 
@@ -326,7 +326,7 @@ When the group has accumulated mora, members see an extra payment option:
 
 ---
 
-## The AI Promoter
+## The AI Advisor
 
 An LLM-powered NPC that acts as game master, narrator, and social catalyst.
 Communicates through the WhatsApp-style group chat.
@@ -474,10 +474,10 @@ Final leaderboard:
 ### Two main screens (swipeable tabs on mobile):
 
 **Tab 1: WhatsApp clone ("Grupo Ciclo 1")**
-- Group chat with all players + AI Promoter
+- Group chat with all players + AI Advisor
 - Predefined message buttons at bottom (replaces keyboard)
 - Tap on Presidenta's avatar → private chat
-- Events appear as promoter messages with emoji
+- Events appear as advisor messages with emoji
 - Typing/presence indicators to build urgency
 
 **Tab 2: Grupalia app clone**
@@ -548,7 +548,7 @@ SpacetimeDB          →  Game state, real-time sync, tables
 Web client (PWA)     →  WhatsApp UI + Grupalia UI
                          Mobile-first, works on any phone
 
-Claude API           →  AI Promoter
+Claude API           →  AI Advisor
                          Receives game state, sends chat messages
                          Personality, reactions, summaries
 ```
@@ -598,7 +598,7 @@ Claude API           →  AI Promoter
    lowest score becomes presidenta next cycle.
 
 7. **Anti-griefing?** -- In a team meeting context, social pressure is
-   probably enough. The AI promoter can call out sabotage with humor.
+   probably enough. The AI advisor can call out sabotage with humor.
    "Alguien esta jugando a la mala... ustedes saben quien es."
 
 8. **Meeting format integration?** -- Should the game replace part of

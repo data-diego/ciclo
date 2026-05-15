@@ -33,7 +33,7 @@ What to build:
 - **Group payment bar:** Shows current vs target (doc: Tab 2 UI)
 - **End condition:** After N weeks (Experiencia=4), show if group survived
 
-What it DOESN'T have yet: chat, events, AI promoter, scoring, mora, investments.
+What it DOESN'T have yet: chat, events, AI advisor, scoring, mora, investments.
 
 **Why it works day 1:** The core tension is already there - will everyone pay?
 The presidenta sees the truth. The group doesn't. Social pressure happens
@@ -91,17 +91,17 @@ What to build:
 
 ---
 
-## Sprint 4: AI Promoter
+## Sprint 4: AI Advisor
 
 **Goal:** Replace hardcoded event/escalation text with an LLM that has
 personality and memory. The game gets a narrator.
 
 What to build:
-- **OpenRouter + LangGraph integration** (doc: The AI Promoter section)
-  - LangGraph deep agents for promoter personality, memory, and escalation logic
+- **OpenRouter + LangGraph integration** (doc: The AI Advisor section)
+  - LangGraph deep agents for advisor personality, memory, and escalation logic
   - OpenRouter for model routing (can use Claude, GPT, etc.)
   - Receives: all decisions, chat messages, game state, business distribution
-  - Sends: chat messages in the group chat as "Promoter" NPC
+  - Sends: chat messages in the group chat as "Advisor" NPC
 - **Event announcements with flavor** - same events, but narrated by AI
 - **Reactive commentary** - AI reacts to game state
   - Calls out low payment weeks
@@ -178,7 +178,7 @@ What to build:
       events.ts          # Event definitions + tables from doc
       scoring.ts         # Points + achievements calculation
     ai/
-      promoter.ts        # OpenRouter client for AI Promoter
+      advisor.ts        # OpenRouter client for AI Advisor
       graph.ts           # LangGraph agent graph (personality, memory, escalation)
     spacetime/
       module/            # SpacetimeDB server module
@@ -189,6 +189,6 @@ What to build:
 - **Vite + React + TypeScript** - fast dev, laptop-first with responsive design
 - **SpacetimeDB** - real-time multiplayer state, no backend to deploy
 - **Tailwind CSS** - quick styling, WhatsApp/Grupalia visual clones
-- **OpenRouter** - model routing for AI Promoter (Sprint 4+)
-- **LangGraph** - deep agent graph for promoter personality, memory, escalation
+- **OpenRouter** - model routing for AI Advisor (Sprint 4+)
+- **LangGraph** - deep agent graph for advisor personality, memory, escalation
 - **No auth library** - room code in URL is the "auth"

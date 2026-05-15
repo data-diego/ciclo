@@ -6,7 +6,7 @@ The UI mimics **WhatsApp + the Grupalia app**. Everyone on the team already know
 
 ## How it works
 
-A Grupalia AI promoter gathers your group to start a credit cycle. One player is randomly assigned as **Presidenta** — she manages the group. Everyone else picks a business type (tiendita, salón, puesto, catálogo, costura, panadería) and must survive the cycle by making weekly group payments.
+A Grupalia AI advisor gathers your group to start a credit cycle. One player is randomly assigned as **Presidenta** — she manages the group. Everyone else picks a business type (tiendita, salón, puesto, catálogo, costura, panadería) and must survive the cycle by making weekly group payments.
 
 Each week lasts **90 seconds** across three phases:
 
@@ -32,6 +32,6 @@ Inspired by Catan — multiple paths to victory with a mix of visible points (bu
 
 - **SpacetimeDB** — Game state & real-time sync
 - **React + TypeScript + Vite** — Mobile-first PWA client
-- **Claude API** — AI Promoter (game master, narrator, social catalyst)
+- **Claude API** — AI Advisor (game master, narrator, social catalyst)
 
 See [GAME-DESIGN.md](./GAME-DESIGN.md) for the full design document.

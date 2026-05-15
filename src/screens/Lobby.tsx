@@ -654,7 +654,7 @@ function CreateFlow({
                     : undefined
                 }
               >
-                <p>Hola! Soy tu promotora de Grupalia 💜</p>
+                <p>Hola! Soy tu asesora de Grupalia 💜</p>
                 <p className="mt-1.5">
                   ¿Estás lista para iniciar un nuevo ciclo de crédito grupal?
                   Junta a tu grupo y empecemos la experiencia.
